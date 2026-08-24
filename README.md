@@ -2,14 +2,17 @@
 
 ระบบบริหารงานภายในร้านป้าย โดยใช้ Job เป็นศูนย์กลาง ตั้งแต่รับลูกค้า ออกแบบ ผลิต ส่งมอบ จนถึงรับชำระเงิน
 
-## Phase 1 Foundation
+## Phase 1–3 Core Flow
 
 - Next.js App Router, TypeScript strict และ Tailwind CSS
-- Dashboard ภาษาไทยแบบ desktop-first และ responsive
-- หน้า Login พร้อม validation ด้วย Zod
+- Dashboard ภาษาไทยที่อ่านข้อมูลจริงจาก Supabase
+- สมัครบัญชี Owner, ยืนยันอีเมล, Login และตั้งค่าองค์กรครั้งแรก
 - Supabase SSR client สำหรับ browser และ server
 - Migration สำหรับ Organization, Profile, Role, Permission และ RLS
 - Role เริ่มต้น: Owner, Admin, Graphic, Production และ Accounting
+- Customer CRUD เบื้องต้นและ Lead Source
+- เปิด Job จาก Customer พร้อม Brief, running number และ activity timeline
+- เปลี่ยน Stage ตั้งแต่ Admin ถึง Complete และบันทึกรับชำระเงิน
 
 ## เริ่มใช้งาน
 
@@ -27,4 +30,4 @@ Service role key ใช้เฉพาะฝั่ง server และห้า�
 - `lib/supabase/` Supabase clients
 - `supabase/migrations/` schema, functions และ RLS policies
 
-ข้อมูลตัวอย่างบน Dashboard เป็น representative data สำหรับวาง product direction ใน Phase 1 และจะเชื่อมกับตารางงานจริงใน Phase 3
+Dashboard และรายการงานใช้ข้อมูลจริงทั้งหมด ไม่มี mock data ในเส้นทางหลัก

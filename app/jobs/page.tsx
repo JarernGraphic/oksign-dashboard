@@ -1,0 +1,14 @@
+import Link from 'next/link';
+import { BriefcaseBusiness, Plus } from 'lucide-react';
+import { AppShell } from '../../components/app-shell';
+import { getCurrentProfile } from '../../lib/current-profile';
+import { createSupabaseServerClient } from '../../lib/supabase/server';
+
+type Job = { id:string; job_number:string; title:string; stage:string; status:string; priority:string; deadline:string|null; grand_total_satang:number; customer:{name:string}|null };
+const stageLabels: Record<string,string> = { ADMIN:'รับงาน',DESIGN:'ออกแบบ',PRODUCTION:'ผลิต',DELIVERY:'ส่งมอบ',COMPLETE:'เสร็จสิ้น' };
+export default async function JobsPage({ searchParams }: { searchParams: Promise<{ stage?: string }> }) {
+  const params = await searchParams; const profile = await getCurrentProfile(); const supabase = await createSupabaseServerClient();
+  let query = supabase.from('jobs').select('id,job_number,title,stage,status,priority,deadline,grand_total_satang,customer:customers(name)').order('created_at',{ascending:false});
+  if (params.stage) query = query.eq('stage',params.stage); const { data,error } = await query; const jobs = (data ?? []) as unknown as Job[];
+  return <AppShell profile={profile} active="/jobs"><div className="section-heading"><div><p>งานขาย</p><h1>รายการงาน</h1><span>ติดตาม Job ตั้งแต่รับงานจนถึงปิดงาน</span></div><Link className="primary-button" href="/jobs/new"><Plus size={17}/>เปิด Job</Link></div><div className="stage-filters">{[{v:'',l:'ทั้งหมด'},{v:'ADMIN',l:'รับงาน'},{v:'DESIGN',l:'ออกแบบ'},{v:'PRODUCTION',l:'ผลิต'},{v:'DELIVERY',l:'ส่งมอบ'},{v:'COMPLETE',l:'เสร็จสิ้น'}].map((f)=><Link className={(params.stage??'')===f.v?'active':''} href={f.v?`/jobs?stage=${f.v}`:'/jobs'} key={f.v}>{f.l}</Link>)}</div><section className="panel list-panel">{error?<div className="error-state">{error.message}</div>:jobs.length?<div className="table-wrap"><table><thead><tr><th>Job</th><th>ลูกค้า</th><th>ขั้นตอน</th><th>กำหนดส่ง</th><th>ความสำคัญ</th><th>ยอดงาน</th></tr></thead><tbody>{jobs.map((job)=><tr key={job.id}><td><Link href={`/jobs/${job.id}`}><strong>{job.job_number}</strong></Link><span>{job.title}</span></td><td>{job.customer?.name??'-'}</td><td><span className="badge blue"><i/>{stageLabels[job.stage]}</span></td><td>{job.deadline?new Intl.DateTimeFormat('th-TH',{dateStyle:'medium',timeZone:'Asia/Bangkok'}).format(new Date(job.deadline)):'-'}</td><td>{job.priority}</td><td>{new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB'}).format(job.grand_total_satang/100)}</td></tr>)}</tbody></table></div>:<div className="empty-state"><BriefcaseBusiness/><h3>ยังไม่มี Job</h3><p>เปิดงานแรกจากข้อมูลลูกค้าที่มีอยู่</p><Link className="primary-button" href="/jobs/new">เปิด Job</Link></div>}</section></AppShell>;
+}
