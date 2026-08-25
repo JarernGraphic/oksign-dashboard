@@ -2,17 +2,21 @@
 
 ระบบบริหารงานภายในร้านป้าย โดยใช้ Job เป็นศูนย์กลาง ตั้งแต่รับลูกค้า ออกแบบ ผลิต ส่งมอบ จนถึงรับชำระเงิน
 
-## Phase 1–3 Core Flow
+## MVP Core Flow
 
 - Next.js App Router, TypeScript strict และ Tailwind CSS
 - Dashboard ภาษาไทยที่อ่านข้อมูลจริงจาก Supabase
-- สมัครบัญชี Owner, ยืนยันอีเมล, Login และตั้งค่าองค์กรครั้งแรก
+- สมัครบัญชี Owner, Login และตั้งค่าองค์กรครั้งแรก
 - Supabase SSR client สำหรับ browser และ server
 - Migration สำหรับ Organization, Profile, Role, Permission และ RLS
 - Role เริ่มต้น: Owner, Admin, Graphic, Production และ Accounting
 - Customer CRUD เบื้องต้นและ Lead Source
 - เปิด Job จาก Customer พร้อม Brief, running number และ activity timeline
 - เปลี่ยน Stage ตั้งแต่ Admin ถึง Complete และบันทึกรับชำระเงิน
+- ใบเสนอราคาพร้อมส่วนลด VAT 7% และหัก ณ ที่จ่าย
+- มัดจำ แบ่งชำระ แนบสลิป และหน้าการเงินรวม
+- ตั้งค่าองค์กร/ช่องทางรับเงิน และเชิญทีม Admin หรือ Graphic
+- ค้นหาทั้งระบบ แจ้งเตือนกำหนดส่ง และกู้คืนรหัสผ่าน
 
 ## เริ่มใช้งาน
 

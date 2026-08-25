@@ -1,0 +1,23 @@
+import Link from 'next/link';
+import { Banknote, BriefcaseBusiness, CircleDollarSign, WalletCards } from 'lucide-react';
+import { AppShell } from '../../components/app-shell';
+import { money, thaiDate } from '../../lib/format';
+import { getCurrentProfile } from '../../lib/current-profile';
+import { createSupabaseServerClient } from '../../lib/supabase/server';
+
+type Payment={id:string;amount_satang:number;method:string;payment_type:string;paid_at:string;reference:string|null;slip_path:string|null;job:{id:string;job_number:string;title:string;customer:{name:string}|null}|null};
+type OutstandingJob={id:string;job_number:string;title:string;grand_total_satang:number;paid_amount_satang:number;customer:{name:string}|null};
+const methodLabel:Record<string,string>={CASH:'เงินสด',BANK_TRANSFER:'โอนธนาคาร',PROMPTPAY:'PromptPay',OTHER:'อื่น ๆ'};
+const typeLabel:Record<string,string>={DEPOSIT:'มัดจำ',INSTALLMENT:'แบ่งชำระ',FINAL:'งวดสุดท้าย'};
+
+export default async function PaymentsPage(){
+  const profile=await getCurrentProfile(); const supabase=await createSupabaseServerClient();
+  const [{data:paymentData,error},{data:jobData}]=await Promise.all([
+    supabase.from('payments').select('id,amount_satang,method,payment_type,paid_at,reference,slip_path,job:jobs(id,job_number,title,customer:customers(name))').order('paid_at',{ascending:false}),
+    supabase.from('jobs').select('id,job_number,title,grand_total_satang,paid_amount_satang,customer:customers(name)').neq('status','CANCELLED').order('created_at',{ascending:false}),
+  ]);
+  const payments=(paymentData??[]) as unknown as Payment[]; const jobs=((jobData??[]) as unknown as OutstandingJob[]).filter((job)=>job.paid_amount_satang<job.grand_total_satang);
+  const signedUrls=new Map<string,string>(); await Promise.all(payments.filter((payment)=>payment.slip_path).map(async(payment)=>{const {data}=await supabase.storage.from('payment-slips').createSignedUrl(payment.slip_path!,300);if(data?.signedUrl)signedUrls.set(payment.id,data.signedUrl);}));
+  const totalReceived=payments.reduce((sum,payment)=>sum+Number(payment.amount_satang),0); const outstanding=jobs.reduce((sum,job)=>sum+job.grand_total_satang-job.paid_amount_satang,0);
+  return <AppShell profile={profile} active="/payments"><div className="section-heading"><div><p>การเงิน</p><h1>รับชำระเงิน</h1><span>ติดตามมัดจำ การแบ่งจ่าย และยอดคงเหลือ</span></div></div><section className="summary-grid payment-summary"><article className="summary-card"><div className="metric-icon cyan"><CircleDollarSign size={20}/></div><div className="metric-copy"><p>รับชำระสะสม</p><strong>{money(totalReceived)}</strong><span>{payments.length} รายการ</span></div></article><article className="summary-card"><div className="metric-icon amber"><WalletCards size={20}/></div><div className="metric-copy"><p>ยอดค้างรับ</p><strong>{money(outstanding)}</strong><span>{jobs.length} งาน</span></div></article></section><div className="two-column"><section className="panel list-panel"><div className="panel-header"><div><h2>ประวัติรับชำระ</h2><p>รายการล่าสุดจากทุก Job</p></div></div>{error?<div className="error-state">{error.message}</div>:payments.length?<div className="table-wrap"><table><thead><tr><th>Job / ลูกค้า</th><th>ประเภท</th><th>ช่องทาง</th><th>วันที่</th><th>จำนวน</th><th>หลักฐาน</th></tr></thead><tbody>{payments.map((payment)=><tr key={payment.id}><td>{payment.job?<Link href={`/jobs/${payment.job.id}`}><strong>{payment.job.job_number}</strong></Link>:null}<span>{payment.job?.customer?.name??'-'}</span></td><td>{typeLabel[payment.payment_type]}</td><td className="payment-channel"><strong>{methodLabel[payment.method]}</strong><span>{payment.reference?`อ้างอิง ${payment.reference}`:'ไม่มีเลขอ้างอิง'}</span></td><td>{thaiDate(payment.paid_at,true)}</td><td><strong className="money-positive">{money(payment.amount_satang)}</strong></td><td>{signedUrls.get(payment.id)?<a className="text-link" href={signedUrls.get(payment.id)} target="_blank" rel="noreferrer">ดูสลิป</a>:'-'}</td></tr>)}</tbody></table></div>:<div className="empty-state"><Banknote/><h3>ยังไม่มีการรับชำระ</h3><p>เปิด Job แล้วบันทึกมัดจำหรือยอดชำระได้</p></div>}</section><aside className="panel outstanding-list"><div className="panel-header"><div><h2>งานที่มียอดค้าง</h2><p>เลือกงานเพื่อรับชำระ</p></div></div>{jobs.length?jobs.map((job)=><Link href={`/jobs/${job.id}`} key={job.id}><BriefcaseBusiness size={16}/><span><strong>{job.job_number}</strong><small>{job.customer?.name} · {job.title}</small></span><b>{money(job.grand_total_satang-job.paid_amount_satang)}</b></Link>):<div className="mini-empty">ไม่มีงานค้างชำระ</div>}</aside></div></AppShell>;
+}

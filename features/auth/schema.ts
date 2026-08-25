@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const loginSchema = z.object({
-  email: z.string().trim().email('กรุณากรอกอีเมลให้ถูกต้อง'),
+  identifier: z.string().trim().min(3, 'กรุณากรอกชื่อผู้ใช้หรืออีเมล'),
   password: z.string().min(8, 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'),
 });
 

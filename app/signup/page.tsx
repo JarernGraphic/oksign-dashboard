@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { SignupForm } from './signup-form';
 
-export const metadata = { title: 'สร้างบัญชี — OKSIGN Dashboard' };
+export const metadata = { title: 'สมัครสมาชิก — OKSIGN Dashboard' };
 export default function SignupPage() {
-  return <main className="simple-auth"><section><div className="login-mobile-brand always"><span>OK</span><strong>OKSIGN</strong></div><p className="eyebrow">เริ่มต้นใช้งาน</p><h1>สร้างบัญชี Owner</h1><p>บัญชีแรกจะเป็นเจ้าขององค์กรและจัดการผู้ใช้ทั้งหมดได้</p><SignupForm /><div className="login-help">มีบัญชีแล้ว? <Link href="/login">เข้าสู่ระบบ</Link></div></section></main>;
+  return <main className="simple-auth"><section><div className="login-mobile-brand always"><img src="/oksign_logo.png" alt="OKSIGN" className="login-logo-img" /><strong>OKSIGN</strong></div><p className="eyebrow">สำหรับพนักงาน OKSIGN</p><h1>สมัครสมาชิก</h1><p>ใช้ชื่อผู้ใช้และรหัสผ่าน ไม่ต้องใช้อีเมล</p><SignupForm /><div className="login-help">มีบัญชีแล้ว? <Link href="/login">เข้าสู่ระบบ</Link></div></section></main>;
 }
