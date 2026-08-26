@@ -282,10 +282,16 @@ export default async function JobPrintPage({ params }: { params: Promise<{ id: s
                   </span>
                 ))}
               </div>
-              <div className="channel-icons-row">
-                <span className={`ch-icon ${contactChannel === 'Facebook' ? 'active' : ''}`}>ⓕ</span>
-                <span className={`ch-icon ${contactChannel?.includes('LINE') ? 'active' : ''}`}>💬</span>
-                <span className={`ch-icon ${contactChannel === 'เบอร์โทร' ? 'active' : ''}`}>📞</span>
+              <div className="channel-icons-row" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span className="contact-icon-circle fb" style={{ width: '18px', height: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '2px', border: '1.2px solid #000', borderRadius: '50%' }}>
+                  <img src="/logo/facebook.png" alt="Facebook" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                </span>
+                <span className="contact-icon-circle line" style={{ width: '18px', height: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '2px', border: '1.2px solid #000', borderRadius: '50%' }}>
+                  <img src="/logo/line.png" alt="Line" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                </span>
+                <span className="contact-icon-circle phone" style={{ width: '18px', height: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '2px', border: '1.2px solid #000', borderRadius: '50%' }}>
+                  <img src="/logo/phone.png" alt="Phone" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                </span>
                 <span className="ch-phone-text">{job.customer?.phone ?? ''}</span>
               </div>
             </div>

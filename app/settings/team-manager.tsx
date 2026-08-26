@@ -163,54 +163,33 @@ export function TeamManager({
       >
         <div
           onClick={() => setFilter('ALL')}
-          style={{
-            padding: '14px 16px',
-            borderRadius: '10px',
-            backgroundColor: filter === 'ALL' ? '#fef2f2' : '#ffffff',
-            border: `1px solid ${filter === 'ALL' ? '#fecaca' : '#e4e4e7'}`,
-            cursor: 'pointer',
-            transition: 'all 0.15s ease',
-          }}
+          className={`team-stat-card ${filter === 'ALL' ? 'active-filter' : ''}`}
         >
-          <div style={{ fontSize: '11px', color: '#71717a', fontWeight: 600 }}>สมาชิกทั้งหมด</div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: '#18181b', marginTop: '4px' }}>
+          <div className="stat-label">สมาชิกทั้งหมด</div>
+          <div className="stat-value">
             {members.length}
           </div>
         </div>
 
         <div
           onClick={() => setFilter('PENDING')}
-          style={{
-            padding: '14px 16px',
-            borderRadius: '10px',
-            backgroundColor: filter === 'PENDING' ? '#fef3c7' : '#ffffff',
-            border: `1px solid ${filter === 'PENDING' ? '#fde68a' : pendingCount > 0 ? '#f59e0b' : '#e4e4e7'}`,
-            cursor: 'pointer',
-            transition: 'all 0.15s ease',
-          }}
+          className={`team-stat-card pending-card ${filter === 'PENDING' ? 'active-filter' : ''}`}
         >
-          <div style={{ fontSize: '11px', color: '#b45309', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div className="stat-label pending-label">
             <Clock size={13} />
             <span>รอการอนุมัติ</span>
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: pendingCount > 0 ? '#b45309' : '#71717a', marginTop: '4px' }}>
+          <div className="stat-value pending-value">
             {pendingCount}
           </div>
         </div>
 
         <div
           onClick={() => setFilter('ACTIVE')}
-          style={{
-            padding: '14px 16px',
-            borderRadius: '10px',
-            backgroundColor: filter === 'ACTIVE' ? '#f0fdf4' : '#ffffff',
-            border: `1px solid ${filter === 'ACTIVE' ? '#bbf7d0' : '#e4e4e7'}`,
-            cursor: 'pointer',
-            transition: 'all 0.15s ease',
-          }}
+          className={`team-stat-card active-card ${filter === 'ACTIVE' ? 'active-filter' : ''}`}
         >
-          <div style={{ fontSize: '11px', color: '#15803d', fontWeight: 600 }}>ใช้งานอยู่</div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: '#15803d', marginTop: '4px' }}>
+          <div className="stat-label active-label">ใช้งานอยู่</div>
+          <div className="stat-value active-value">
             {activeCount}
           </div>
         </div>
@@ -225,9 +204,9 @@ export function TeamManager({
             gap: '8px',
             padding: '10px 14px',
             borderRadius: '8px',
-            backgroundColor: feedbackMessage.type === 'success' ? '#f0fdf4' : '#fef2f2',
-            border: `1px solid ${feedbackMessage.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
-            color: feedbackMessage.type === 'success' ? '#166534' : '#b91c1c',
+            backgroundColor: feedbackMessage.type === 'success' ? '#052e16' : '#450a0a',
+            border: `1px solid ${feedbackMessage.type === 'success' ? '#166534' : '#991b1b'}`,
+            color: feedbackMessage.type === 'success' ? '#86efac' : '#fca5a5',
             fontSize: '13px',
           }}
         >
@@ -237,27 +216,9 @@ export function TeamManager({
       )}
 
       {/* Member Table / List */}
-      <div
-        style={{
-          border: '1px solid #e4e4e7',
-          borderRadius: '10px',
-          overflow: 'hidden',
-          backgroundColor: '#ffffff',
-        }}
-      >
-        <div
-          style={{
-            padding: '12px 16px',
-            backgroundColor: '#f9fafb',
-            borderBottom: '1px solid #e4e4e7',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '10px',
-            flexWrap: 'wrap',
-          }}
-        >
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#18181b' }}>
+      <div className="team-list-card">
+        <div className="team-list-header">
+          <div className="team-list-title">
             รายชื่อทีมงาน ({filteredMembers.length} คน)
           </div>
           {isOwner && (
@@ -282,7 +243,7 @@ export function TeamManager({
           )}
         </div>
 
-        <div style={{ display: 'grid', divideY: '1px solid #f4f4f5' }}>
+        <div>
           {filteredMembers.length === 0 ? (
             <div style={{ padding: '32px', textAlign: 'center', color: '#a1a1aa', fontSize: '13px' }}>
               ไม่พบรายชื่อสมาชิกในหมวดหมู่นี้
@@ -296,17 +257,9 @@ export function TeamManager({
               return (
                 <div
                   key={member.id}
+                  className={`team-member-row ${!member.is_active ? 'row-pending' : ''}`}
                   style={{
-                    padding: '14px 16px',
-                    borderBottom: '1px solid #f4f4f5',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    flexWrap: 'wrap',
                     opacity: isRowProcessing ? 0.6 : 1,
-                    backgroundColor: !member.is_active ? '#fffbeb' : '#ffffff',
-                    transition: 'background-color 0.15s ease',
                   }}
                 >
                   {/* Left: Avatar & Info */}
@@ -320,7 +273,7 @@ export function TeamManager({
                           height: '40px',
                           borderRadius: '50%',
                           objectFit: 'cover',
-                          border: '2px solid #e4e4e7',
+                          border: '2px solid rgba(220, 38, 38, 0.3)',
                         }}
                       />
                     ) : (
@@ -343,7 +296,7 @@ export function TeamManager({
                     )}
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <strong style={{ fontSize: '14px', color: '#18181b' }}>{member.full_name}</strong>
+                        <strong className="member-name">{member.full_name}</strong>
                         {isSelf && (
                           <span
                             style={{
@@ -371,8 +324,8 @@ export function TeamManager({
                               gap: '4px',
                               fontSize: '11px',
                               fontWeight: 650,
-                              color: '#b45309',
-                              backgroundColor: '#fef3c7',
+                              color: '#fbbf24',
+                              backgroundColor: '#451a03',
                               padding: '2px 8px',
                               borderRadius: '12px',
                             }}
@@ -387,10 +340,10 @@ export function TeamManager({
                               gap: '4px',
                               fontSize: '11px',
                               fontWeight: 600,
-                              color: '#15803d',
+                              color: '#4ade80',
                             }}
                           >
-                            <CheckCircle2 size={12} /> ใช้งานได้ปกติ
+                            <Check size={12} /> ใช้งานได้ปกติ
                           </span>
                         )}
                       </div>
@@ -404,18 +357,7 @@ export function TeamManager({
                         defaultValue={member.role?.id || member.role_id}
                         disabled={isRowProcessing}
                         onChange={(e) => handleRoleChange(member.id, e.target.value)}
-                        style={{
-                          height: '34px',
-                          padding: '0 10px',
-                          borderRadius: '6px',
-                          border: '1px solid #d4d4d8',
-                          backgroundColor: '#ffffff',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          color: '#18181b',
-                          cursor: 'pointer',
-                          outline: 'none',
-                        }}
+                        className="member-role-select"
                       >
                         {roles
                           .filter((r) => r.code !== 'ACCOUNTING')

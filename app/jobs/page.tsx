@@ -6,6 +6,7 @@ import { AppShell } from '../../components/app-shell';
 import { getCurrentProfile } from '../../lib/current-profile';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
 import { JobTableRow } from '../../components/job-table-row';
+import { JobsFilterPanel } from '../../components/jobs-filter-panel';
 
 type Job = {
   id: string;
@@ -29,6 +30,31 @@ const stageLabels: Record<string, string> = {
   PRODUCTION: 'ผลิต',
   DELIVERY: 'ส่งมอบ',
   COMPLETE: 'เสร็จสิ้น',
+};
+
+const getJobStatusBadge = (job: Job) => {
+  if (job.stage === 'ADMIN' || job.design_status === 'WAITING_DESIGN') {
+    return { label: 'รอยืนยัน', className: 'badge amber' };
+  }
+  if (job.stage === 'DESIGN') {
+    if (job.design_status === 'WAITING_CUSTOMER') {
+      return { label: 'ส่งแบบแล้ว', className: 'badge purple' };
+    }
+    if (job.design_status === 'APPROVED') {
+      return { label: 'อนุมัติแบบแล้ว', className: 'badge green' };
+    }
+    return { label: 'กำลังออกแบบ', className: 'badge blue' };
+  }
+  if (job.stage === 'PRODUCTION') {
+    return { label: 'กำลังผลิต', className: 'badge orange' };
+  }
+  if (job.stage === 'DELIVERY') {
+    return { label: 'ส่งมอบ', className: 'badge cyan' };
+  }
+  if (job.stage === 'COMPLETE' || job.status === 'COMPLETED') {
+    return { label: 'เสร็จสิ้น', className: 'badge green' };
+  }
+  return { label: stageLabels[job.stage] || job.stage, className: 'badge gray' };
 };
 
 const priorityLabels: Record<string, string> = {
@@ -84,12 +110,27 @@ export default async function JobsPage({
   // 1. Fetch all profiles for Filter dropdowns (Admins & Graphics)
   const { data: allProfilesData } = await supabase
     .from('profiles')
-    .select('id, full_name, role:roles(code, name_th)')
+    .select('id, full_name, avatar_url, role:roles(code, name_th)')
     .order('full_name');
 
   const allProfiles = allProfilesData || [];
-  const graphicsList = allProfiles.filter((p: any) => p.role?.code === 'GRAPHIC' || p.role?.code === 'OWNER');
-  const adminsList = allProfiles.filter((p: any) => ['ADMIN', 'OWNER'].includes(p.role?.code));
+  const graphicsList = allProfiles
+    .filter((p: any) => p.role?.code === 'GRAPHIC' || p.role?.name_th?.includes('กราฟิก'))
+    .map((p: any) => ({
+      id: p.id,
+      name: p.full_name,
+      avatar_url: p.avatar_url,
+      role_name: p.role?.name_th || 'กราฟิก',
+    }));
+
+  const adminsList = allProfiles
+    .filter((p: any) => ['ADMIN', 'OWNER'].includes(p.role?.code))
+    .map((p: any) => ({
+      id: p.id,
+      name: p.full_name,
+      avatar_url: p.avatar_url,
+      role_name: p.role?.name_th || (p.role?.code === 'OWNER' ? 'เจ้าของร้าน' : 'แอดมิน'),
+    }));
 
   // Map profile names for easy lookup
   const profileMap = new Map<string, string>();
@@ -112,8 +153,8 @@ export default async function JobsPage({
       { count: sentProofCount },
       { count: monthlyCount },
     ] = await Promise.all([
-      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('assigned_graphic_id', targetGraphic).eq('stage', 'ADMIN'),
-      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('assigned_graphic_id', targetGraphic).eq('stage', 'DESIGN'),
+      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('assigned_graphic_id', targetGraphic).or('stage.eq.ADMIN,design_status.eq.WAITING_DESIGN'),
+      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('assigned_graphic_id', targetGraphic).eq('stage', 'DESIGN').or('design_status.eq.DESIGNING,design_status.eq.REVISION,design_status.is.null'),
       supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('assigned_graphic_id', targetGraphic).eq('stage', 'DESIGN').eq('design_status', 'WAITING_CUSTOMER'),
       supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('assigned_graphic_id', targetGraphic).gte('created_at', startOfThisMonth).lte('created_at', endOfThisMonth),
     ]);
@@ -135,7 +176,7 @@ export default async function JobsPage({
   // 3. Main Jobs Query
   let mainQuery = supabase
     .from('jobs')
-    .select('id, job_number, title, stage, status, priority, deadline, grand_total_satang, assigned_graphic_id, created_by, created_at, customer:customers(name)')
+    .select('id, job_number, title, stage, status, design_status, priority, deadline, grand_total_satang, assigned_graphic_id, created_by, created_at, customer:customers(name)')
     .order('created_at', { ascending: false });
 
   if (isDesignPage) {
@@ -148,7 +189,7 @@ export default async function JobsPage({
     if (selectedDesignStatus === 'WAITING_DESIGN') {
       mainQuery = mainQuery.or('stage.eq.ADMIN,design_status.eq.WAITING_DESIGN');
     } else if (selectedDesignStatus === 'DESIGNING') {
-      mainQuery = mainQuery.eq('stage', 'DESIGN').or('design_status.eq.DESIGNING,design_status.is.null');
+      mainQuery = mainQuery.eq('stage', 'DESIGN').or('design_status.eq.DESIGNING,design_status.eq.REVISION,design_status.is.null');
     } else if (selectedDesignStatus === 'WAITING_CUSTOMER') {
       mainQuery = mainQuery.eq('design_status', 'WAITING_CUSTOMER');
     } else if (selectedDesignStatus === 'APPROVED') {
@@ -283,253 +324,17 @@ export default async function JobsPage({
       )}
 
       {/* 2. FILTERS TOOLBAR */}
-      <div className="panel" style={{ padding: '18px 22px', marginBottom: '20px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        {/* Category Stage / Status Pill Buttons */}
-        {isDesignPage ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', minWidth: '55px' }}>สถานะ:</span>
-            {[
-              { v: '', l: 'งานทั้งหมด' },
-              { v: 'WAITING_DESIGN', l: 'รอยืนยัน' },
-              { v: 'DESIGNING', l: 'กำลังออกแบบ' },
-              { v: 'WAITING_CUSTOMER', l: 'ส่งแบบแล้ว' },
-              { v: 'APPROVED', l: 'ผลิตแล้ว' },
-            ].map((f) => {
-              const isActive = selectedDesignStatus === f.v;
-              const buildUrl = () => {
-                const p = new URLSearchParams();
-                p.set('stage', 'DESIGN');
-                if (f.v) p.set('design_status', f.v);
-                if (selectedYear) p.set('year', selectedYear);
-                if (selectedMonth) p.set('month', selectedMonth);
-                if (params.graphic_id) p.set('graphic_id', params.graphic_id);
-                return `/jobs?${p.toString()}`;
-              };
-
-              return (
-                <Link
-                  key={f.v}
-                  href={buildUrl()}
-                  style={{
-                    padding: '7px 18px',
-                    borderRadius: '20px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    textDecoration: 'none',
-                    transition: 'all 0.15s ease',
-                    background: isActive ? '#dc2626' : '#ffffff',
-                    color: isActive ? '#ffffff' : '#475569',
-                    border: isActive ? '1px solid #dc2626' : '1px solid #cbd5e1',
-                    boxShadow: isActive ? '0 3px 8px rgba(220, 38, 38, 0.22)' : '0 1px 2px rgba(0,0,0,0.03)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {f.l}
-                </Link>
-              );
-            })}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', minWidth: '55px' }}>ขั้นตอน:</span>
-            {[
-              { v: '', l: 'ทั้งหมด' },
-              { v: 'ADMIN', l: 'รับงาน' },
-              { v: 'DESIGN', l: 'ออกแบบ' },
-              { v: 'PRODUCTION', l: 'ผลิต' },
-              { v: 'DELIVERY', l: 'ส่งมอบ' },
-              { v: 'COMPLETE', l: 'เสร็จสิ้น' },
-            ].map((f) => {
-              const isActive = (stage || '') === f.v;
-              const buildUrl = () => {
-                const p = new URLSearchParams();
-                if (f.v) p.set('stage', f.v);
-                if (selectedYear) p.set('year', selectedYear);
-                if (selectedMonth) p.set('month', selectedMonth);
-                if (selectedGraphicId) p.set('graphic_id', selectedGraphicId);
-                if (selectedAdminId) p.set('admin_id', selectedAdminId);
-                const str = p.toString();
-                return str ? `/jobs?${str}` : '/jobs';
-              };
-
-              return (
-                <Link
-                  key={f.v}
-                  href={buildUrl()}
-                  style={{
-                    padding: '7px 18px',
-                    borderRadius: '20px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    textDecoration: 'none',
-                    transition: 'all 0.15s ease',
-                    background: isActive ? '#dc2626' : '#ffffff',
-                    color: isActive ? '#ffffff' : '#475569',
-                    border: isActive ? '1px solid #dc2626' : '1px solid #cbd5e1',
-                    boxShadow: isActive ? '0 3px 8px rgba(220, 38, 38, 0.22)' : '0 1px 2px rgba(0,0,0,0.03)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {f.l}
-                </Link>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Year Pill Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', minWidth: '55px' }}>ปี:</span>
-          {[
-            { v: '', l: 'ทุกปี' },
-            { v: '2026', l: '2026' },
-            { v: '2025', l: '2025' },
-          ].map((f) => {
-            const isActive = selectedYear === f.v;
-            const buildUrl = () => {
-              const p = new URLSearchParams();
-              if (stage) p.set('stage', stage);
-              if (f.v) p.set('year', f.v);
-              if (selectedMonth) p.set('month', selectedMonth);
-              if (selectedGraphicId) p.set('graphic_id', selectedGraphicId);
-              if (selectedAdminId) p.set('admin_id', selectedAdminId);
-              const str = p.toString();
-              return str ? `/jobs?${str}` : '/jobs';
-            };
-
-            return (
-              <Link
-                key={f.v}
-                href={buildUrl()}
-                style={{
-                  padding: '6px 16px',
-                  borderRadius: '20px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  textDecoration: 'none',
-                  transition: 'all 0.15s ease',
-                  background: isActive ? '#dc2626' : '#ffffff',
-                  color: isActive ? '#ffffff' : '#475569',
-                  border: isActive ? '1px solid #dc2626' : '1px solid #cbd5e1',
-                  boxShadow: isActive ? '0 2px 6px rgba(220, 38, 38, 0.22)' : '0 1px 2px rgba(0,0,0,0.03)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {f.l}
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Month Pill Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', minWidth: '55px' }}>เดือน:</span>
-          {[
-            { v: '', l: 'ทุกเดือน' },
-            { v: '1', l: 'ม.ค.' },
-            { v: '2', l: 'ก.พ.' },
-            { v: '3', l: 'มี.ค.' },
-            { v: '4', l: 'เม.ย.' },
-            { v: '5', l: 'พ.ค.' },
-            { v: '6', l: 'มิ.ย.' },
-            { v: '7', l: 'ก.ค.' },
-            { v: '8', l: 'ส.ค.' },
-            { v: '9', l: 'ก.ย.' },
-            { v: '10', l: 'ต.ค.' },
-            { v: '11', l: 'พ.ย.' },
-            { v: '12', l: 'ธ.ค.' },
-          ].map((f) => {
-            const isActive = selectedMonth === f.v;
-            const buildUrl = () => {
-              const p = new URLSearchParams();
-              if (stage) p.set('stage', stage);
-              if (selectedYear) p.set('year', selectedYear);
-              if (f.v) p.set('month', f.v);
-              if (selectedGraphicId) p.set('graphic_id', selectedGraphicId);
-              if (selectedAdminId) p.set('admin_id', selectedAdminId);
-              const str = p.toString();
-              return str ? `/jobs?${str}` : '/jobs';
-            };
-
-            return (
-              <Link
-                key={f.v}
-                href={buildUrl()}
-                style={{
-                  padding: '5px 13px',
-                  borderRadius: '18px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  textDecoration: 'none',
-                  transition: 'all 0.15s ease',
-                  background: isActive ? '#dc2626' : '#ffffff',
-                  color: isActive ? '#ffffff' : '#475569',
-                  border: isActive ? '1px solid #dc2626' : '1px solid #cbd5e1',
-                  boxShadow: isActive ? '0 2px 6px rgba(220, 38, 38, 0.22)' : '0 1px 2px rgba(0,0,0,0.03)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {f.l}
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Graphic & Admin Filters Form (Main List Only) */}
-        {!isDesignPage ? (
-          <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
-            <form method="get" style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
-              {stage ? <input type="hidden" name="stage" value={stage} /> : null}
-              {selectedYear ? <input type="hidden" name="year" value={selectedYear} /> : null}
-              {selectedMonth ? <input type="hidden" name="month" value={selectedMonth} /> : null}
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <label style={{ fontSize: '14px', fontWeight: '600', color: '#334155' }}>แยกตามกราฟิก:</label>
-                <select
-                  name="graphic_id"
-                  defaultValue={selectedGraphicId}
-                  style={{ padding: '7px 12px', fontSize: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}
-                >
-                  <option value="">กราฟิกทุกคน</option>
-                  {graphicsList.map((g: any) => (
-                    <option key={g.id} value={g.id}>{g.full_name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <label style={{ fontSize: '14px', fontWeight: '600', color: '#334155' }}>แยกตามแอดมิน:</label>
-                <select
-                  name="admin_id"
-                  defaultValue={selectedAdminId}
-                  style={{ padding: '7px 12px', fontSize: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}
-                >
-                  <option value="">แอดมินทุกคน</option>
-                  {adminsList.map((a: any) => (
-                    <option key={a.id} value={a.id}>{a.full_name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="secondary-button"
-                style={{ height: '36px', padding: '0 16px', fontSize: '14px', borderRadius: '8px', marginLeft: 'auto' }}
-              >
-                กรองผู้รับผิดชอบ
-              </button>
-            </form>
-          </div>
-        ) : null}
-      </div>
+      <JobsFilterPanel
+        isDesignPage={isDesignPage}
+        stage={stage}
+        selectedDesignStatus={selectedDesignStatus}
+        selectedYear={selectedYear}
+        selectedMonth={selectedMonth}
+        selectedGraphicId={selectedGraphicId}
+        selectedAdminId={selectedAdminId}
+        graphicsList={graphicsList}
+        adminsList={adminsList}
+      />
 
       {/* 3. TABLE SECTION */}
       <section className="panel list-panel" style={{ borderRadius: '10px' }}>
@@ -611,12 +416,17 @@ export default async function JobsPage({
 
                       {/* 5. สถานะงาน */}
                       <td style={{ padding: '14px 16px' }}>
-                        <span
-                          className={`badge ${job.stage === 'DESIGN' ? 'amber' : job.stage === 'ADMIN' ? 'blue' : 'green'}`}
-                          style={{ fontSize: '13px', padding: '6px 12px', borderRadius: '16px' }}
-                        >
-                          {stageLabels[job.stage] || job.stage}
-                        </span>
+                        {(() => {
+                          const badge = getJobStatusBadge(job);
+                          return (
+                            <span
+                              className={badge.className}
+                              style={{ fontSize: '13px', padding: '6px 12px', borderRadius: '16px' }}
+                            >
+                              {badge.label}
+                            </span>
+                          );
+                        })()}
                       </td>
 
                       {/* 6. ชื่อคนออกแบบ (หน้ารายการงานเท่านั้น) */}

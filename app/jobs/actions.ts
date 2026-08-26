@@ -11,7 +11,12 @@ export type JobFormState = { error?: string };
 export async function createJobAction(_state: JobFormState, formData: FormData): Promise<JobFormState> {
   const customerId = String(formData.get('customerId') ?? '').trim();
   const title = String(formData.get('title') ?? '').trim();
+  const graphicId = String(formData.get('graphicId') ?? '').trim();
+  const shapes = formData.getAll('shapes').map(String);
+
   if (!customerId || !title) return { error: 'กรุณาเลือกลูกค้าและระบุชื่องาน' };
+  if (!shapes || shapes.length === 0) return { error: 'กรุณาเลือกลักษณะของงาน (รูปทรง)' };
+  if (!graphicId) return { error: 'กรุณาเลือกกราฟิกผู้รับผิดชอบงาน' };
 
   let dimensions = String(formData.get('dimensions') ?? '').trim();
   const width = String(formData.get('width') ?? '').trim();
@@ -28,7 +33,6 @@ export async function createJobAction(_state: JobFormState, formData: FormData):
   const depositMethod = String(formData.get('depositMethod') ?? 'BANK_TRANSFER');
   const deadline = String(formData.get('deadline') ?? '');
   const priority = String(formData.get('priority') ?? 'NORMAL');
-  const graphicId = String(formData.get('graphicId') ?? '') || null;
 
   // Extract structured Job Order Spec
   const receiverName = String(formData.get('receiverName') ?? '').trim();
@@ -38,7 +42,6 @@ export async function createJobAction(_state: JobFormState, formData: FormData):
   const dueDate = String(formData.get('dueDate') ?? '');
   const designCondition = String(formData.get('designCondition') ?? '');
   const contactChannel = String(formData.get('contactChannel') ?? '');
-  const shapes = formData.getAll('shapes').map(String);
   const printers = formData.getAll('printers').map(String);
   const materials = formData.getAll('materials').map(String);
   const boardTypes = formData.getAll('boardTypes').map(String);
@@ -124,7 +127,16 @@ export async function createJobAction(_state: JobFormState, formData: FormData):
       }
     }
     const formattedJobNumber = `${prefix}${String(nextSeq).padStart(3, '0')}`;
-    await supabase.from('jobs').update({ job_number: formattedJobNumber }).eq('id', String(newJobId));
+    await supabase.from('jobs').update({
+      job_number: formattedJobNumber,
+      stage: 'ADMIN',
+      design_status: 'WAITING_DESIGN',
+    }).eq('id', String(newJobId));
+  } else {
+    await supabase.from('jobs').update({
+      stage: 'ADMIN',
+      design_status: 'WAITING_DESIGN',
+    }).eq('id', String(newJobId));
   }
 
   // If deposit was paid, record initial deposit
@@ -257,11 +269,9 @@ export async function acceptJobAction(formData: FormData) {
   const profile = await getCurrentProfile();
   const supabase = await createSupabaseServerClient();
 
-  const nowIso = new Date().toISOString();
   await supabase.from('jobs').update({
     stage: 'DESIGN',
     design_status: 'DESIGNING',
-    accepted_at: nowIso,
   }).eq('id', jobId);
 
   await supabase.from('activity_logs').insert({
@@ -357,11 +367,9 @@ export async function confirmCustomerApproveAction(formData: FormData) {
 
   const profile = await getCurrentProfile();
   const supabase = await createSupabaseServerClient();
-  const nowIso = new Date().toISOString();
 
   await supabase.from('jobs').update({
     design_status: 'APPROVED',
-    approved_at: nowIso,
   }).eq('id', jobId);
 
   // Notify assigned graphic designer

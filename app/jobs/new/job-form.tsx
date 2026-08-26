@@ -4,14 +4,20 @@ import { useActionState, useState, useRef, useEffect, type ChangeEvent } from 'r
 import Link from 'next/link';
 import {
   AlertCircle, Calendar, Check, CheckSquare, ChevronDown, Circle, DollarSign, FileText, Image as ImageIcon,
-  Layers, Package, Palette, Phone, Plus, Printer, RectangleHorizontal, RectangleVertical,
+  Layers, MessageSquare, Package, Paintbrush, Palette, Phone, Plus, Printer, RectangleHorizontal, RectangleVertical,
   Scissors, Search, Send, Sparkles, Square, Triangle, UploadCloud, User, UserCheck, Wrench, X, Zap
 } from 'lucide-react';
 
 import { createJobAction, type JobFormState } from '../actions';
 import { CustomerModal, type CustomerOption } from '../../../components/customer-modal';
 
-type Option = { id: string; name: string };
+export type GraphicOption = {
+  id: string;
+  name: string;
+  avatar_url?: string | null;
+  role_code?: string;
+  role_name?: string;
+};
 
 export function JobForm({
   customers,
@@ -20,7 +26,7 @@ export function JobForm({
   nextJobNumber = '',
 }: {
   customers: CustomerOption[];
-  graphics: Option[];
+  graphics: GraphicOption[];
   currentProfileName?: string;
   nextJobNumber?: string;
 }) {
@@ -34,6 +40,16 @@ export function JobForm({
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState<boolean>(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Graphic Dropdown
+  const [graphicId, setGraphicId] = useState<string>('');
+  const [isGraphicDropdownOpen, setIsGraphicDropdownOpen] = useState<boolean>(false);
+  const [graphicSearchQuery, setGraphicSearchQuery] = useState<string>('');
+  const graphicDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Warnings
+  const [shapeWarning, setShapeWarning] = useState<string | null>(null);
+  const [graphicWarning, setGraphicWarning] = useState<string | null>(null);
 
   const [title, setTitle] = useState<string>('');
   const [width, setWidth] = useState<string>('');
@@ -49,7 +65,6 @@ export function JobForm({
   const [remainingMethod, setRemainingMethod] = useState<string>('');
   const [dueDate, setDueDate] = useState<string>('');
   const [priority, setPriority] = useState<string>('NORMAL');
-  const [graphicId, setGraphicId] = useState<string>('');
   const [designCondition, setDesignCondition] = useState<string>('ดูแบบ');
   const [contactChannel, setContactChannel] = useState<string>('LINE OA');
   const [facebookContact, setFacebookContact] = useState<string>('');
@@ -65,8 +80,6 @@ export function JobForm({
   const [boardWarning, setBoardWarning] = useState<string | null>(null);
   const [finishing, setFinishing] = useState<string[]>([]);
   const [shapes, setShapes] = useState<string[]>([]);
-  const [isRegistered, setIsRegistered] = useState<boolean>(false);
-  const [isReceived, setIsReceived] = useState<boolean>(false);
   const [customFinishing, setCustomFinishing] = useState<string>('');
 
   const mainBoardList = ['ฟิวเจอร์บอร์ด', 'โฟมบอร์ด', 'อะคริลิค', 'พลาสวูด', 'คอมโพสิต'];
@@ -76,29 +89,13 @@ export function JobForm({
 
   const handleThicknessClick = (thick: string) => {
     if (!activeSelectedBoard) {
-      setBoardWarning('⚠️ กรุณาเลือกประเภทบอร์ดก่อน (เช่น ฟิวเจอร์บอร์ด, พลาสวูด, อะคริลิค...)');
+      setBoardWarning(' กรุณาเลือกประเภทบอร์ดก่อน (เช่น ฟิวเจอร์บอร์ด, พลาสวูด, อะคริลิค...)');
       setTimeout(() => setBoardWarning(null), 3500);
       return;
     }
     setBoardWarning(null);
     const targetVal = `${activeSelectedBoard} ${thick}`;
     handleCheckboxToggle(boardTypes, setBoardTypes, targetVal);
-  };
-
-
-  // Image preview state
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-
-  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setImagePreview(url);
-    }
-  };
-
-  const removeImage = () => {
-    setImagePreview(null);
   };
 
   const handleCheckboxToggle = (
@@ -113,11 +110,14 @@ export function JobForm({
     }
   };
 
-  // Close customer dropdown when clicked outside
+  // Close dropdowns when clicked outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsCustomerDropdownOpen(false);
+      }
+      if (graphicDropdownRef.current && !graphicDropdownRef.current.contains(event.target as Node)) {
+        setIsGraphicDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -136,12 +136,20 @@ export function JobForm({
   const calculatedRemaining = Math.max(0, calculatedTotal - numDepositBaht);
 
   const selectedCustomer = customerList.find((c) => c.id === customerId);
+  const selectedGraphic = graphics.find((g) => g.id === graphicId);
 
   // Filtered customer list for search
   const filteredCustomers = customerList.filter((c) => {
     const q = customerSearchQuery.toLowerCase().trim();
     if (!q) return true;
     return c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q)) || (c.company_name && c.company_name.toLowerCase().includes(q));
+  });
+
+  // Filtered graphics list for search
+  const filteredGraphics = graphics.filter((g) => {
+    const q = graphicSearchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return g.name.toLowerCase().includes(q) || (g.role_name && g.role_name.toLowerCase().includes(q));
   });
 
   const selectCustomer = (c: CustomerOption) => {
@@ -153,9 +161,36 @@ export function JobForm({
     setIsCustomerDropdownOpen(false);
   };
 
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    if (!customerId) {
+      e.preventDefault();
+      alert('กรุณาเลือกลูกค้า');
+      setIsCustomerDropdownOpen(true);
+      return;
+    }
+    if (!title.trim()) {
+      e.preventDefault();
+      alert('กรุณาระบุชื่องาน');
+      return;
+    }
+    if (shapes.length === 0) {
+      e.preventDefault();
+      setShapeWarning(' กรุณาเลือกลักษณะของงาน (รูปทรงอย่างน้อย 1 แบบ)');
+      const shapeEl = document.querySelector('.paper-shapes-group');
+      if (shapeEl) shapeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (!graphicId) {
+      e.preventDefault();
+      setGraphicWarning(' กรุณาเลือกกราฟิกผู้รับผิดชอบงาน');
+      setIsGraphicDropdownOpen(true);
+      return;
+    }
+  };
+
   return (
     <>
-      <form action={action} className="job-order-workbench paper-style-workbench">
+      <form action={action} onSubmit={handleFormSubmit} className="job-order-workbench paper-style-workbench">
       {state.error ? <div className="form-error-banner span-all">{state.error}</div> : null}
 
       {/* LEFT COLUMN: Authentic Interactive Paper Sheet */}
@@ -165,7 +200,7 @@ export function JobForm({
           <div className="paper-top-grid">
             {/* LEFT COLUMN OF PAPER */}
             <div className="paper-header-left">
-              {/* Title Badge & Receiver (Dropdown select from Graphic staff) */}
+              {/* Title Badge & Receiver */}
               <div className="paper-row-inline">
                 <span className="paper-badge-title">ใบรับงาน</span>
                 <div className="paper-field-box inline-receiver">
@@ -219,7 +254,7 @@ export function JobForm({
                           >
                             <div className="c-info">
                               <span className="c-name">{c.name}</span>
-                              {c.phone && <span className="c-phone">📞 {c.phone}</span>}
+                              {c.phone && <span className="c-phone"> {c.phone}</span>}
                             </div>
                             {customerId === c.id && <Check size={16} className="c-check" />}
                           </div>
@@ -507,10 +542,12 @@ export function JobForm({
                 <div className="paper-channel-badge-header">ช่องทางติดต่อลูกค้า</div>
                 <input type="hidden" name="contactChannel" value={contactChannel} />
 
-                {/* 3 Contact Input Rows Matching Image 3 exactly */}
+                {/* 3 Contact Input Rows */}
                 <div className="paper-contact-inputs-list">
                   <div className="paper-contact-line">
-                    <span className="contact-icon-circle fb">ⓕ</span>
+                    <span className="contact-icon-circle fb">
+                      <img src="/logo/facebook.png" alt="Facebook" className="contact-circle-img" />
+                    </span>
                     <input
                       name="facebookContact"
                       value={facebookContact}
@@ -520,7 +557,9 @@ export function JobForm({
                     />
                   </div>
                   <div className="paper-contact-line">
-                    <span className="contact-icon-circle line">💬</span>
+                    <span className="contact-icon-circle line">
+                      <img src="/logo/line.png" alt="Line" className="contact-circle-img" />
+                    </span>
                     <input
                       name="lineContact"
                       value={lineContact}
@@ -530,7 +569,9 @@ export function JobForm({
                     />
                   </div>
                   <div className="paper-contact-line">
-                    <span className="contact-icon-circle phone">📞</span>
+                    <span className="contact-icon-circle phone">
+                      <img src="/logo/phone.png" alt="Phone" className="contact-circle-img" />
+                    </span>
                     <input
                       name="phoneContact"
                       value={phoneContact}
@@ -544,42 +585,52 @@ export function JobForm({
             </div>
           </div>
 
-          {/* ROW 2: Shapes + Printer (left) & Stamp Boxes (right, spanning 2 rows) */}
+          {/* ROW 2: Shapes (ลักษณะของงาน) + Printer (left) & Stamp Boxes (right, spanning 2 rows) */}
           <div className="paper-middle-grid-2row">
             {/* Shapes */}
-            <div className="paper-shapes-group">
-              {[
-                { name: 'สี่เหลี่ยมจัตุรัส', icon: 'square' },
-                { name: 'สี่เหลี่ยมแนวตั้ง', icon: 'tall' },
-                { name: 'สี่เหลี่ยมแนวนอน', icon: 'wide' },
-                { name: 'วงกลม', icon: 'circle' },
-                { name: 'สามเหลี่ยม', icon: 'triangle' },
-              ].map((s) => {
-                const isChecked = shapes.includes(s.name);
-                return (
-                  <label className={`paper-shape-item ${isChecked ? 'active' : ''}`} key={s.name} title={s.name}>
-                    <input
-                      type="checkbox"
-                      name="shapes"
-                      value={s.name}
-                      checked={isChecked}
-                      onChange={() => handleCheckboxToggle(shapes, setShapes, s.name)}
-                    />
-                    <div className="shape-wrapper">
-                      {s.icon === 'square' && <div className="shape-svg square" />}
-                      {s.icon === 'tall' && <div className="shape-svg tall" />}
-                      {s.icon === 'wide' && <div className="shape-svg wide" />}
-                      {s.icon === 'circle' && <div className="shape-svg circle" />}
-                      {s.icon === 'triangle' && (
-                        <svg width="15" height="15" viewBox="0 0 16 16" className="shape-svg triangle">
-                          <polygon points="8,2 15,14 1,14" fill="none" stroke="#000" strokeWidth="1.4" />
-                        </svg>
-                      )}
-                      {isChecked && <span className="shape-red-check">✓</span>}
-                    </div>
-                  </label>
-                );
-              })}
+            <div className="paper-shapes-group-container">
+              {shapeWarning && (
+                <div className="shape-warning-callout">
+                  <AlertCircle size={13} /> <span>{shapeWarning}</span>
+                </div>
+              )}
+              <div className={`paper-shapes-group ${shapes.length === 0 ? 'needs-shape-select' : ''}`}>
+                {[
+                  { name: 'สี่เหลี่ยมจัตุรัส', icon: 'square' },
+                  { name: 'สี่เหลี่ยมแนวตั้ง', icon: 'tall' },
+                  { name: 'สี่เหลี่ยมแนวนอน', icon: 'wide' },
+                  { name: 'วงกลม', icon: 'circle' },
+                  { name: 'สามเหลี่ยม', icon: 'triangle' },
+                ].map((s) => {
+                  const isChecked = shapes.includes(s.name);
+                  return (
+                    <label className={`paper-shape-item ${isChecked ? 'active' : ''}`} key={s.name} title={s.name}>
+                      <input
+                        type="checkbox"
+                        name="shapes"
+                        value={s.name}
+                        checked={isChecked}
+                        onChange={() => {
+                          setShapeWarning(null);
+                          handleCheckboxToggle(shapes, setShapes, s.name);
+                        }}
+                      />
+                      <div className="shape-wrapper">
+                        {s.icon === 'square' && <div className="shape-svg square" />}
+                        {s.icon === 'tall' && <div className="shape-svg tall" />}
+                        {s.icon === 'wide' && <div className="shape-svg wide" />}
+                        {s.icon === 'circle' && <div className="shape-svg circle" />}
+                        {s.icon === 'triangle' && (
+                          <svg width="15" height="15" viewBox="0 0 16 16" className="shape-svg triangle">
+                            <polygon points="8,2 15,14 1,14" fill="none" stroke="#000" strokeWidth="1.4" />
+                          </svg>
+                        )}
+                        {isChecked && <span className="shape-red-check">✓</span>}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Stamp 1: ลงทะเบียน */}
@@ -592,7 +643,7 @@ export function JobForm({
               <span className="stamp-label-top">รับแล้ว</span>
             </div>
 
-            {/* Printer row (under shapes, left column) */}
+            {/* Printer row */}
             <div className="paper-printer-row-inner">
               <span className="paper-printer-badge">เครื่องพิมพ์</span>
               {['GZ', 'Epson', 'Fuji'].map((p) => (
@@ -610,13 +661,13 @@ export function JobForm({
             </div>
           </div>
 
-          {/* ROW 4: วัสดุ (Materials Grid Matching Image 4) */}
+          {/* ROW 4: วัสดุ (Materials Grid) */}
           <div className="paper-category-block">
             <div className="cat-badge-wrap">
               <span className="cat-badge">วัสดุ</span>
             </div>
             <div className="cat-content-grid col-4">
-              {/* Column 1: Vinyl + Stickers list on the left */}
+              {/* Column 1: Vinyl + Stickers */}
               <div className="cat-col col-1">
                 <label className={`paper-check-item ${materials.includes('ไวนิล') ? 'checked' : ''}`}>
                   <input
@@ -642,7 +693,7 @@ export function JobForm({
                 ))}
               </div>
 
-              {/* Column 2: Vinyl sub-options (grey border box) + Sticker custom color underneath */}
+              {/* Column 2: Vinyl sub-options */}
               <div className="cat-col col-2">
                 <div className="vinyl-sub-frame-box">
                   <div className="vinyl-sub-grid">
@@ -790,7 +841,7 @@ export function JobForm({
                 ))}
               </div>
 
-              {/* Column 2: Thickness Matrix inside Grey Box */}
+              {/* Column 2: Thickness Matrix */}
               <div className="cat-col col-2 thickness-matrix-col">
                 {boardWarning && (
                   <div className="board-inline-warning">
@@ -874,7 +925,7 @@ export function JobForm({
             </div>
           </div>
 
-          {/* ROW 6: ประกอบงาน (Finishing Matching Image 3) */}
+          {/* ROW 6: ประกอบงาน */}
           <div className="paper-category-block">
             <div className="cat-badge-wrap">
               <span className="cat-badge">ประกอบงาน</span>
@@ -1019,7 +1070,7 @@ export function JobForm({
                   </label>
                 ))}
                 <div className="custom-finishing-line">
-                  <span>ระบุ</span>
+                  <label className="paper-label-mini">ระบุ:</label>
                   <input
                     name="customFinishing"
                     value={customFinishing}
@@ -1032,30 +1083,33 @@ export function JobForm({
             </div>
           </div>
 
-          {/* ROW 7: รายละเอียดเพิ่มเติม (Notes - Large Box) */}
+          {/* ROW 7: รายละเอียดเพิ่มเติม */}
           <div className="paper-notes-section">
-            <span className="notes-heading-label">รายละเอียดเพิ่มเติม</span>
+            <span className="paper-notes-label">รายละเอียดเพิ่มเติม</span>
             <textarea
               name="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="ระบุรายละเอียดเพิ่มเติม หรือข้อกำชับช่างผลิต..."
-              className="paper-notes-textarea"
               rows={2}
+              className="paper-notes-input"
             />
           </div>
         </div>
       </div>
 
-      {/* RIGHT COLUMN: Dispatch Settings, Sticky Financial Calculation & Live Preview */}
-      <aside className="workbench-preview-sidebar">
-        {/* Top Right Dispatch Settings Card (ความสำคัญ & มอบหมาย Graphic) */}
-        <div className="wb-dispatch-card">
-          <div className="dispatch-header">
-            <Zap size={15} />
-            <span>การจัดการใบงาน</span>
+      {/* RIGHT COLUMN: Dispatch Settings, Profile Selector & Live Preview */}
+      <aside className="sidebar-meta-panel">
+        {/* Dispatch Settings Card */}
+        <div className="wb-card dispatch-card">
+          <div className="wb-card-header">
+            <div className="header-title-flex">
+              <Zap size={16} />
+              <h3>การจัดการใบงาน</h3>
+            </div>
           </div>
-          <div className="dispatch-grid">
+
+          <div className="dispatch-form-grid">
             <div className="dispatch-item">
               <span className="dispatch-label">ความสำคัญ:</span>
               <select
@@ -1071,19 +1125,98 @@ export function JobForm({
                 <option value="EVENING">รับเย็น</option>
               </select>
             </div>
-            <div className="dispatch-item">
-              <span className="dispatch-label">มอบหมาย Graphic:</span>
-              <select
-                name="graphicId"
-                value={graphicId}
-                onChange={(e) => setGraphicId(e.target.value)}
-                className="wb-select dispatch-select"
+
+            {/* CUSTOM GRAPHIC PROFILE SELECTOR */}
+            <div className="dispatch-item flex-1" ref={graphicDropdownRef} style={{ position: 'relative' }}>
+              <span className="dispatch-label">
+                มอบหมาย Graphic <b className="req" style={{ color: '#ef4444' }}>*</b>:
+              </span>
+
+              <div
+                className={`custom-graphic-selector ${isGraphicDropdownOpen ? 'open' : ''} ${!graphicId && graphicWarning ? 'required-highlight' : ''}`}
+                onClick={() => setIsGraphicDropdownOpen(!isGraphicDropdownOpen)}
               >
-                <option value="">-- เลือก Graphic --</option>
-                {graphics.map((g) => (
-                  <option value={g.id} key={g.id}>{g.name}</option>
-                ))}
-              </select>
+                {selectedGraphic ? (
+                  <div className="selected-graphic-display">
+                    {selectedGraphic.avatar_url ? (
+                      <img
+                        src={selectedGraphic.avatar_url}
+                        alt={selectedGraphic.name}
+                        className="graphic-avatar-img"
+                      />
+                    ) : (
+                      <div className="graphic-avatar-placeholder">
+                        {selectedGraphic.name.slice(0, 1)}
+                      </div>
+                    )}
+                    <div className="graphic-text-info">
+                      <strong className="graphic-name">{selectedGraphic.name}</strong>
+                      <span className="graphic-role-tag">{selectedGraphic.role_name || 'กราฟิก'}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="placeholder-graphic-display">
+                    <User size={16} className="text-muted" />
+                    <span>-- เลือก Graphic ผู้รับผิดชอบ --</span>
+                  </div>
+                )}
+                <ChevronDown size={14} className="dropdown-arrow" />
+              </div>
+
+              <input type="hidden" name="graphicId" value={graphicId} required />
+
+              {/* Graphic Dropdown Menu */}
+              {isGraphicDropdownOpen && (
+                <div className="graphic-dropdown-menu">
+                  <div className="graphic-search-box">
+                    <Search size={14} />
+                    <input
+                      type="text"
+                      placeholder="ค้นหาชื่อ Graphic..."
+                      value={graphicSearchQuery}
+                      onChange={(e) => setGraphicSearchQuery(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="graphic-options-list">
+                    {filteredGraphics.length > 0 ? (
+                      filteredGraphics.map((g) => (
+                        <div
+                          key={g.id}
+                          className={`graphic-option-item ${graphicId === g.id ? 'active' : ''}`}
+                          onClick={() => {
+                            setGraphicId(g.id);
+                            setIsGraphicDropdownOpen(false);
+                            setGraphicWarning(null);
+                          }}
+                        >
+                          {g.avatar_url ? (
+                            <img src={g.avatar_url} alt={g.name} className="graphic-avatar-img" />
+                          ) : (
+                            <div className="graphic-avatar-placeholder">
+                              {g.name.slice(0, 1)}
+                            </div>
+                          )}
+                          <div className="graphic-info-col">
+                            <span className="name">{g.name}</span>
+                            <span className="role">{g.role_name || 'กราฟิก'}</span>
+                          </div>
+                          {graphicId === g.id && <Check size={16} className="check-icon" />}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="graphic-not-found">ไม่พบชื่อ Graphic &quot;{graphicSearchQuery}&quot;</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {graphicWarning && (
+                <small className="field-error-text" style={{ color: '#ef4444', marginTop: '4px', display: 'block' }}>
+                  {graphicWarning}
+                </small>
+              )}
             </div>
           </div>
         </div>
@@ -1111,8 +1244,6 @@ export function JobForm({
               )}
             </div>
           </div>
-
-
 
           {/* Live Content Body */}
           <div className="wb-preview-body">
@@ -1161,11 +1292,24 @@ export function JobForm({
               </div>
             </div>
 
-            {/* Selected Spec Badges Preview */}
+            {/* Assigned Graphic & Selected Spec Badges Preview */}
             <div className="preview-badges-box">
-              {graphicId && (
-                <span className="badge purple mini">
-                  🎨 {graphics.find((g) => g.id === graphicId)?.name}
+              {selectedGraphic ? (
+                <span className="badge purple mini" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  {selectedGraphic.avatar_url ? (
+                    <img
+                      src={selectedGraphic.avatar_url}
+                      alt={selectedGraphic.name}
+                      style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <Paintbrush size={12} />
+                  )}
+                  <span>Graphic: {selectedGraphic.name}</span>
+                </span>
+              ) : (
+                <span className="badge amber mini" style={{ borderStyle: 'dashed', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <AlertCircle size={12} /> ยังไม่เลือก Graphic
                 </span>
               )}
               {printers.map((p) => <span key={p} className="badge red mini">{p}</span>)}

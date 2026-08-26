@@ -1,16 +1,21 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Banknote, CalendarDays, CheckCircle2, CircleDot,
-  FileSpreadsheet, PackageCheck, Printer, UserRound
+  Banknote, CalendarDays, CheckCircle2, CircleDot, Clock,
+  FileSpreadsheet, History, PackageCheck, Printer, UserCheck, UserRound
 } from 'lucide-react';
 import { AppShell } from '../../../components/app-shell';
 import { getCurrentProfile } from '../../../lib/current-profile';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
 import { PaymentForm } from '../../payments/payment-form';
-import { updateJobStageAction } from '../actions';
-
+import {
+  acceptJobAction,
+  confirmCustomerApproveAction,
+  confirmProductionReadyAction,
+  updateJobStageAction
+} from '../actions';
 import { DesignWorkbench, type DesignProof } from '../../../components/design-workbench';
+import { JobPaperSheet, type JobOrderSpec } from '../../../components/job-paper-sheet';
 
 type JobDetail = {
   id: string;
@@ -18,9 +23,7 @@ type JobDetail = {
   title: string;
   stage: string;
   status: string;
-  design_status: string;
-  accepted_at: string | null;
-  approved_at: string | null;
+  design_status?: string;
   priority: string;
   deadline: string | null;
   grand_total_satang: number;
@@ -47,22 +50,6 @@ type Activity = {
   action: string;
   created_at: string;
   user: { full_name: string } | null;
-};
-
-const stages = ['ADMIN', 'DESIGN', 'PRODUCTION', 'DELIVERY', 'COMPLETE'] as const;
-const labels: Record<string, string> = {
-  ADMIN: 'รับงาน',
-  DESIGN: 'ออกแบบ',
-  PRODUCTION: 'ผลิต',
-  DELIVERY: 'ส่งมอบ',
-  COMPLETE: 'เสร็จสิ้น',
-};
-
-const nextStage: Record<string, string | undefined> = {
-  ADMIN: 'DESIGN',
-  DESIGN: 'PRODUCTION',
-  PRODUCTION: 'DELIVERY',
-  DELIVERY: 'COMPLETE',
 };
 
 const actionLabels: Record<string, string> = {
@@ -97,26 +84,6 @@ const paymentMethodLabels: Record<string, string> = {
 const money = (satang: number) =>
   new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' }).format(satang / 100);
 
-type JobSpec = {
-  receiverName?: string;
-  dimensions?: string;
-  quantity?: number;
-  unitPrice?: number;
-  installCost?: number;
-  installLocation?: string;
-  depositMethod?: string;
-  remainingMethod?: string;
-  designCondition?: string;
-  contactChannel?: string;
-  shapes?: string[];
-  printers?: string[];
-  materials?: string[];
-  boardTypes?: string[];
-  finishing?: string[];
-  customFinishing?: string;
-  notes?: string;
-};
-
 export default async function JobDetailPage({
   params,
   searchParams,
@@ -129,6 +96,9 @@ export default async function JobDetailPage({
   const profile = await getCurrentProfile();
   const supabase = await createSupabaseServerClient();
 
+  const isOwnerOrAdmin = ['OWNER', 'ADMIN'].includes(profile.role?.code || '');
+  const isGraphic = profile.role?.code === 'GRAPHIC';
+
   const [{ data: jobData }, { data: paymentsData }, { data: activitiesData }] = await Promise.all([
     supabase
       .from('jobs')
@@ -138,6 +108,7 @@ export default async function JobDetailPage({
         title,
         stage,
         status,
+        design_status,
         priority,
         deadline,
         grand_total_satang,
@@ -149,11 +120,13 @@ export default async function JobDetailPage({
       `)
       .eq('id', id)
       .single(),
-    supabase
-      .from('payments')
-      .select('id, amount_satang, method, payment_type, paid_at, reference, slip_path')
-      .eq('job_id', id)
-      .order('paid_at', { ascending: false }),
+    isOwnerOrAdmin
+      ? supabase
+          .from('payments')
+          .select('id, amount_satang, method, payment_type, paid_at, reference, slip_path')
+          .eq('job_id', id)
+          .order('paid_at', { ascending: false })
+      : Promise.resolve({ data: [] }),
     supabase
       .from('activity_logs')
       .select('id, action, created_at, user:profiles(full_name)')
@@ -164,26 +137,8 @@ export default async function JobDetailPage({
   if (!jobData) notFound();
   const job = jobData as unknown as JobDetail;
 
-  // Safely fetch design status & proofs (handles cases where DB migration isn't applied remotely)
-  let design_status = 'WAITING_DESIGN';
-  let accepted_at: string | null = null;
-  let approved_at: string | null = null;
+  const design_status = job.design_status || 'WAITING_DESIGN';
   let proofsData: any[] = [];
-
-  try {
-    const { data: extraJobFields } = await supabase
-      .from('jobs')
-      .select('design_status, accepted_at, approved_at')
-      .eq('id', id)
-      .single();
-    if (extraJobFields) {
-      if (extraJobFields.design_status) design_status = extraJobFields.design_status;
-      if (extraJobFields.accepted_at) accepted_at = extraJobFields.accepted_at;
-      if (extraJobFields.approved_at) approved_at = extraJobFields.approved_at;
-    }
-  } catch {
-    // Ignore if columns do not exist yet
-  }
 
   try {
     const { data: proofs } = await supabase
@@ -210,10 +165,9 @@ export default async function JobDetailPage({
   const payments = (paymentsData ?? []) as Payment[];
   const activities = (activitiesData ?? []) as unknown as Activity[];
   const remaining = job.grand_total_satang - job.paid_amount_satang;
-  const currentIndex = stages.indexOf(job.stage as typeof stages[number]);
 
   // Parse structured spec
-  let spec: JobSpec = {};
+  let spec: JobOrderSpec = {};
   if (job.brief?.requirements) {
     try {
       spec = JSON.parse(job.brief.requirements);
@@ -223,317 +177,227 @@ export default async function JobDetailPage({
   }
 
   const slipUrls = new Map<string, string>();
-  await Promise.all(
-    payments
-      .filter((payment) => payment.slip_path)
-      .map(async (payment) => {
-        const { data } = await supabase.storage.from('payment-slips').createSignedUrl(payment.slip_path!, 300);
-        if (data?.signedUrl) slipUrls.set(payment.id, data.signedUrl);
-      })
-  );
+  if (isOwnerOrAdmin) {
+    await Promise.all(
+      payments
+        .filter((payment) => payment.slip_path)
+        .map(async (payment) => {
+          const { data } = await supabase.storage.from('payment-slips').createSignedUrl(payment.slip_path!, 300);
+          if (data?.signedUrl) slipUrls.set(payment.id, data.signedUrl);
+        })
+    );
+  }
+
+  // Determine active sidebar menu and sub-item
+  const activeMenu = isGraphic || job.stage === 'DESIGN' ? '/jobs?stage=DESIGN' : '/jobs';
+
+  // Stepper logical state calculation
+  // 1: ADMIN (รับงาน), 2: DESIGN (ออกแบบ), 3: PRODUCTION (ผลิต), 4: DELIVERY (ส่งมอบ), 5: COMPLETE (เสร็จสิ้น)
+  const isWaitingAcceptance = job.stage === 'ADMIN' || design_status === 'WAITING_DESIGN';
+  const isDesigning = job.stage === 'DESIGN' && (design_status === 'DESIGNING' || design_status === 'REVISION');
+  const isWaitingCustomer = job.stage === 'DESIGN' && design_status === 'WAITING_CUSTOMER';
+  const isDesignApproved = design_status === 'APPROVED' || ['PRODUCTION', 'DELIVERY', 'COMPLETE'].includes(job.stage);
 
   return (
-    <AppShell profile={profile} active="/jobs">
+    <AppShell
+      profile={profile}
+      active={activeMenu}
+      activeSubItem={{
+        title: `${job.job_number} ${job.title}`,
+        subtitle: job.customer?.name ? `ลูกค้า: ${job.customer.name}` : undefined,
+      }}
+    >
       {query.created ? <div className="success-banner">เปิด Job และสร้างเลขที่งานเรียบร้อยแล้ว</div> : null}
 
-      <div className="job-header">
-        <div>
-          <p>{job.job_number}</p>
-          <h1>{job.title}</h1>
-          <span>{job.customer?.name ?? '-'} · {job.priority}</span>
-        </div>
-
-        <div className="header-actions">
-          <Link className="secondary-button" href={`/jobs/${job.id}/print`}>
-            <Printer size={16} />
-            พิมพ์ใบรับงาน (A5)
-          </Link>
-
-          {nextStage[job.stage] ? (
-            <form action={updateJobStageAction}>
-              <input type="hidden" name="jobId" value={job.id} />
-              <input type="hidden" name="stage" value={nextStage[job.stage]} />
-              <button className="primary-button">
-                <PackageCheck size={17} />
-                {job.stage === 'ADMIN'
-                  ? 'ส่งออกแบบ'
-                  : job.stage === 'DESIGN'
-                  ? 'อนุมัติและส่งผลิต'
-                  : job.stage === 'PRODUCTION'
-                  ? 'ผลิตเสร็จ'
-                  : job.stage === 'DELIVERY'
-                  ? 'ปิด Job'
-                  : 'อัปเดต'}
-              </button>
-            </form>
-          ) : (
-            <span className="complete-badge">
-              <CheckCircle2 size={16} />
-              ปิดงานแล้ว
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="stage-progress">
-        {stages.map((stage, index) => (
-          <div className={index <= currentIndex ? 'done' : ''} key={stage}>
-            <span>{index < currentIndex ? <CheckCircle2 /> : <CircleDot />}</span>
-            <p>{labels[stage]}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* DESIGN WORKBENCH & PROOF MANAGEMENT */}
-      <DesignWorkbench
-        jobId={job.id}
-        stage={job.stage}
-        designStatus={design_status}
-        acceptedAt={accepted_at}
-        approvedAt={approved_at}
-        assignedGraphicName={assignedGraphicName}
-        isAssignedGraphic={Boolean(job.assigned_graphic_id && job.assigned_graphic_id === profile.id)}
-        isOwnerOrAdmin={['OWNER', 'ADMIN'].includes(profile.role?.code || '')}
-        proofs={proofsData as unknown as DesignProof[]}
-      />
-
-      <div className="detail-grid">
-        <div className="detail-main">
-          {/* ข้อมูลใบรับงาน (Job Order Spec) */}
-          <section className="panel detail-card">
-            <div className="panel-header">
-              <div>
-                <h2>
-                  <FileSpreadsheet size={18} />
-                  ข้อมูลใบรับงาน & สเปกการผลิต
-                </h2>
-                <p>รายละเอียดตามใบรับงาน OKSIGN</p>
-              </div>
-              <Link className="text-link" href={`/jobs/${job.id}/print`}>
-                เปิดดูใบงาน A5 ➔
-              </Link>
-            </div>
-
-            <div className="detail-fields">
-              <div>
-                <span>ผู้รับงาน</span>
-                <strong>{spec.receiverName || '-'}</strong>
-              </div>
-              <div>
-                <span>ลูกค้า</span>
-                <strong>{job.customer?.name}</strong>
-              </div>
-              <div>
-                <span>เบอร์โทร</span>
-                <strong>{job.customer?.phone ?? '-'}</strong>
-              </div>
-              <div>
-                <span>LINE / ช่องทาง</span>
-                <strong>{spec.contactChannel || job.customer?.line_name || '-'}</strong>
-              </div>
-              <div>
-                <span>ขนาด</span>
-                <strong>{spec.dimensions || job.brief?.dimensions || '-'}</strong>
-              </div>
-              <div>
-                <span>จำนวน</span>
-                <strong>{spec.quantity ?? job.brief?.quantity ?? 1} ชิ้น</strong>
-              </div>
-              <div>
-                <span>ราคา/ชิ้น</span>
-                <strong>{spec.unitPrice ? `฿${spec.unitPrice.toLocaleString('th-TH')}` : '-'}</strong>
-              </div>
-              <div>
-                <span>ค่าแรงติดตั้ง</span>
-                <strong>{spec.installCost ? `฿${spec.installCost.toLocaleString('th-TH')}` : '-'}</strong>
-              </div>
-              {spec.installLocation ? (
-                <div className="span-2">
-                  <span>สถานที่ติดตั้ง</span>
-                  <p>{spec.installLocation}</p>
-                </div>
-              ) : null}
-              <div>
-                <span>สถานะแบบ</span>
-                <span className="badge blue">{spec.designCondition || 'ดูแบบ'}</span>
-              </div>
-              <div>
-                <span>กำหนดส่ง</span>
-                <strong>
-                  {job.deadline
-                    ? new Intl.DateTimeFormat('th-TH', {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                        timeZone: 'Asia/Bangkok',
-                      }).format(new Date(job.deadline))
-                    : 'ไม่ระบุ'}
-                </strong>
-              </div>
-            </div>
-
-            {/* Checkbox Spec Summaries */}
-            <div className="spec-tags-section">
-              {spec.printers?.length ? (
-                <div className="spec-tag-group">
-                  <span>เครื่องพิมพ์:</span>
-                  <div>
-                    {spec.printers.map((p) => (
-                      <b key={p} className="badge red">{p}</b>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {spec.materials?.length ? (
-                <div className="spec-tag-group">
-                  <span>วัสดุ:</span>
-                  <div>
-                    {spec.materials.map((m) => (
-                      <b key={m} className="badge gray">{m}</b>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {spec.boardTypes?.length ? (
-                <div className="spec-tag-group">
-                  <span>โครงสร้าง/บอร์ด:</span>
-                  <div>
-                    {spec.boardTypes.map((b) => (
-                      <b key={b} className="badge amber">{b}</b>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {spec.finishing?.length ? (
-                <div className="spec-tag-group">
-                  <span>ประกอบงาน:</span>
-                  <div>
-                    {spec.finishing.map((f) => (
-                      <b key={f} className="badge cyan">{f}</b>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {spec.shapes?.length ? (
-                <div className="spec-tag-group">
-                  <span>รูปทรง:</span>
-                  <div>
-                    {spec.shapes.map((s) => (
-                      <b key={s} className="badge blue">{s}</b>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            {spec.notes ? (
-              <div className="spec-notes-box">
-                <span>รายละเอียดเพิ่มเติม:</span>
-                <p>{spec.notes}</p>
-              </div>
-            ) : null}
-          </section>
-
-          {/* Timeline */}
-          <section className="panel detail-card">
-            <div className="panel-header">
-              <div>
-                <h2>Timeline</h2>
-                <p>ประวัติสำคัญของ Job</p>
-              </div>
-            </div>
-            <div className="timeline">
-              {activities.map((activity) => (
-                <div key={activity.id}>
-                  <i />
-                  <span>
-                    <strong>{actionLabels[activity.action] ?? activity.action}</strong>
-                    <small>
-                      {activity.user?.full_name ?? 'ระบบ'} ·{' '}
-                      {new Intl.DateTimeFormat('th-TH', {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                        timeZone: 'Asia/Bangkok',
-                      }).format(new Date(activity.created_at))}
-                    </small>
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        {/* Sidebar: การเงิน & ข้อมูลเพิ่มเติม */}
-        <aside className="detail-side">
-          <section className="panel finance-card">
-            <div className="panel-header">
-              <div>
-                <h2>
-                  <Banknote size={17} />
-                  การชำระเงิน
-                </h2>
-              </div>
-            </div>
-            <div className="finance-numbers">
-              <span>
-                ยอดทั้งหมด<strong>{money(job.grand_total_satang)}</strong>
-              </span>
-              <span>
-                ชำระแล้ว<strong className="paid">{money(job.paid_amount_satang)}</strong>
-              </span>
-              <span>
-                คงเหลือ<strong className={remaining ? 'unpaid' : 'paid'}>{money(remaining)}</strong>
-              </span>
-            </div>
-            {remaining > 0 ? <PaymentForm jobId={job.id} remainingBaht={remaining / 100} /> : null}
-            <div className="payment-list">
-              {payments.map((payment) => (
-                <div key={payment.id}>
-                  <span>
-                    <strong>{money(payment.amount_satang)}</strong>
-                    <small>
-                      {paymentTypeLabels[payment.payment_type] ?? payment.payment_type} ·{' '}
-                      {paymentMethodLabels[payment.method] ?? payment.method} ·{' '}
-                      {new Intl.DateTimeFormat('th-TH', {
-                        dateStyle: 'short',
-                        timeZone: 'Asia/Bangkok',
-                      }).format(new Date(payment.paid_at))}
-                    </small>
-                  </span>
-                  <small>
-                    {slipUrls.get(payment.id) ? (
-                      <a className="text-link" href={slipUrls.get(payment.id)} target="_blank" rel="noreferrer">
-                        ดูสลิป
-                      </a>
-                    ) : payment.reference ? (
-                      `อ้างอิง ${payment.reference}`
-                    ) : (
-                      'ไม่มีเลขอ้างอิง'
-                    )}
-                  </small>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="panel info-card">
-            <p>
-              <CalendarDays size={15} />
-              สร้างเมื่อ{' '}
-              {new Intl.DateTimeFormat('th-TH', {
-                dateStyle: 'medium',
-                timeZone: 'Asia/Bangkok',
-              }).format(new Date(job.created_at))}
-            </p>
-            <p>
-              <UserRound size={15} />
-              Admin: {profile.full_name}
-            </p>
-          </section>
+      {/* MODERN SPLIT-WORKBENCH LAYOUT */}
+      <div className="job-workspace-layout">
+        {/* LEFT COLUMN: THE AUTHENTIC JOB RECEIPT SHEET */}
+        <aside className="job-workspace-paper-col">
+          <JobPaperSheet job={job} spec={spec} />
         </aside>
+
+        {/* RIGHT COLUMN: WORKSPACE, STAGE PIPELINE, PROOFS, PAYMENTS & TIMELINE */}
+        <main className="job-workspace-main-col">
+          {/* COMPACT TOP HEADER & PIPELINE */}
+          <div className="job-meta-header-card">
+            <div className="meta-top-row">
+              <div className="meta-title-group">
+                <div className="meta-number-badge">
+                  <span>{job.job_number}</span>
+                  <span className="priority-pill">{job.priority}</span>
+                </div>
+                <h1 className="meta-heading">{job.title}</h1>
+                <p className="meta-subtext">
+                  ลูกค้า: <strong>{job.customer?.name ?? '-'}</strong> {job.customer?.phone ? `(${job.customer.phone})` : ''}
+                  {job.deadline ? ` · กำหนดส่ง ${new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeZone: 'Asia/Bangkok' }).format(new Date(job.deadline))}` : ''}
+                </p>
+              </div>
+
+              <div className="meta-actions">
+                <Link className="secondary-button" href={`/jobs/${job.id}/print`} target="_blank">
+                  <Printer size={15} /> พิมพ์ใบรับงาน
+                </Link>
+              </div>
+            </div>
+
+            {/* STAGE STEPPER PIPELINE (ACCURATE & STATUS-AWARE) */}
+            <div className="compact-stage-stepper">
+              {/* Step 1: รับงาน / รอกราฟิกรับงาน */}
+              <div
+                className={`stepper-pill ${!isWaitingAcceptance ? 'passed' : 'active'}`}
+                style={isWaitingAcceptance ? { background: '#fef3c7', color: '#b45309', borderColor: '#fde68a' } : undefined}
+              >
+                <span className="step-dot">{!isWaitingAcceptance ? '✓' : '1'}</span>
+                <span className="step-name">{!isWaitingAcceptance ? 'รับงานแล้ว' : 'รอกราฟิกรับงาน'}</span>
+              </div>
+
+              {/* Step 2: ออกแบบ */}
+              <div
+                className={`stepper-pill ${isDesignApproved ? 'passed' : (job.stage === 'DESIGN' ? 'active' : '')}`}
+              >
+                <span className="step-dot">{isDesignApproved ? '✓' : '2'}</span>
+                <span className="step-name">
+                  {isWaitingCustomer
+                    ? 'รอตรวจแบบ'
+                    : isDesignApproved
+                    ? 'แบบผ่านแล้ว'
+                    : 'กำลังออกแบบ'}
+                </span>
+              </div>
+
+              {/* Step 3: ผลิต */}
+              <div
+                className={`stepper-pill ${['DELIVERY', 'COMPLETE'].includes(job.stage) ? 'passed' : (job.stage === 'PRODUCTION' ? 'active' : '')}`}
+              >
+                <span className="step-dot">{['DELIVERY', 'COMPLETE'].includes(job.stage) ? '✓' : '3'}</span>
+                <span className="step-name">ผลิต</span>
+              </div>
+
+              {/* Step 4: ส่งมอบ */}
+              <div
+                className={`stepper-pill ${job.stage === 'COMPLETE' ? 'passed' : (job.stage === 'DELIVERY' ? 'active' : '')}`}
+              >
+                <span className="step-dot">{job.stage === 'COMPLETE' ? '✓' : '4'}</span>
+                <span className="step-name">ส่งมอบ</span>
+              </div>
+
+              {/* Step 5: เสร็จสิ้น */}
+              <div
+                className={`stepper-pill ${job.stage === 'COMPLETE' ? 'passed active' : ''}`}
+              >
+                <span className="step-dot">{job.stage === 'COMPLETE' ? '✓' : '5'}</span>
+                <span className="step-name">เสร็จสิ้น</span>
+              </div>
+            </div>
+          </div>
+
+          {/* DESIGN PROOFS & WORKBENCH */}
+          <DesignWorkbench
+            jobId={job.id}
+            stage={job.stage}
+            designStatus={design_status}
+            assignedGraphicName={assignedGraphicName}
+            isAssignedGraphic={Boolean(job.assigned_graphic_id && job.assigned_graphic_id === profile.id)}
+            isOwnerOrAdmin={isOwnerOrAdmin}
+            proofs={proofsData as unknown as DesignProof[]}
+          />
+
+          {/* FINANCIAL SECTION (VISIBLE ONLY TO ADMIN & OWNER) */}
+          {isOwnerOrAdmin ? (
+            <section className="panel finance-card" style={{ marginBottom: '16px' }}>
+              <div className="panel-header">
+                <div>
+                  <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Banknote size={18} className="text-primary" /> การเงิน & การชำระเงิน
+                  </h2>
+                  <p>สรุปยอดชำระและรายการสลิป (เฉพาะแอดมินและเจ้าของร้าน)</p>
+                </div>
+              </div>
+
+              <div className="finance-numbers">
+                <span>
+                  ยอดทั้งหมด<strong>{money(job.grand_total_satang)}</strong>
+                </span>
+                <span>
+                  ชำระแล้ว<strong className="paid">{money(job.paid_amount_satang)}</strong>
+                </span>
+                <span>
+                  คงเหลือ<strong className={remaining ? 'unpaid' : 'paid'}>{money(remaining)}</strong>
+                </span>
+              </div>
+
+              {remaining > 0 ? <PaymentForm jobId={job.id} remainingBaht={remaining / 100} /> : null}
+
+              <div className="payment-list">
+                {payments.length === 0 ? (
+                  <p className="mini-empty" style={{ padding: '12px', textAlign: 'center' }}>ยังไม่มีรายการชำระเงิน</p>
+                ) : (
+                  payments.map((payment) => (
+                    <div key={payment.id}>
+                      <span>
+                        <strong>{money(payment.amount_satang)}</strong>
+                        <small>
+                          {paymentTypeLabels[payment.payment_type] ?? payment.payment_type} ·{' '}
+                          {paymentMethodLabels[payment.method] ?? payment.method} ·{' '}
+                          {new Intl.DateTimeFormat('th-TH', {
+                            dateStyle: 'short',
+                            timeZone: 'Asia/Bangkok',
+                          }).format(new Date(payment.paid_at))}
+                        </small>
+                      </span>
+                      <small>
+                        {slipUrls.get(payment.id) ? (
+                          <a className="text-link" href={slipUrls.get(payment.id)} target="_blank" rel="noreferrer">
+                            ดูสลิป
+                          </a>
+                        ) : payment.reference ? (
+                          `อ้างอิง ${payment.reference}`
+                        ) : (
+                          'ไม่มีเลขอ้างอิง'
+                        )}
+                      </small>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          {/* TIMELINE & ACTIVITY LOG (PLACED AT THE BOTTOM) */}
+          <section className="panel detail-card">
+            <div className="panel-header">
+              <div>
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <History size={18} className="text-primary" /> ประวัติกิจกรรม (Timeline)
+                </h2>
+                <p>บันทึกการทำงานของ Job</p>
+              </div>
+            </div>
+
+            <div className="timeline" style={{ maxHeight: '320px', overflowY: 'auto' }}>
+              {activities.length === 0 ? (
+                <p className="mini-empty" style={{ padding: '12px', textAlign: 'center' }}>ยังไม่มีประวัติกิจกรรม</p>
+              ) : (
+                activities.map((activity) => (
+                  <div key={activity.id}>
+                    <i />
+                    <span>
+                      <strong>{actionLabels[activity.action] ?? activity.action}</strong>
+                      <small>
+                        {activity.user?.full_name ?? 'ระบบ'} ·{' '}
+                        {new Intl.DateTimeFormat('th-TH', {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                          timeZone: 'Asia/Bangkok',
+                        }).format(new Date(activity.created_at))}
+                      </small>
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        </main>
       </div>
     </AppShell>
   );
