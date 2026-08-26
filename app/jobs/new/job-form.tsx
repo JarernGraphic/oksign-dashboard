@@ -36,8 +36,11 @@ export function JobForm({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [title, setTitle] = useState<string>('');
-  const [dimensions, setDimensions] = useState<string>('');
+  const [width, setWidth] = useState<string>('');
+  const [height, setHeight] = useState<string>('');
+  const dimensions = width && height ? `${width} × ${height}` : (width || height || '');
   const [quantity, setQuantity] = useState<number>(1);
+
   const [unitPrice, setUnitPrice] = useState<number>(0);
   const [installCost, setInstallCost] = useState<number>(0);
   const [installLocation, setInstallLocation] = useState<string>('');
@@ -243,18 +246,29 @@ export function JobForm({
               </label>
             </div>
 
-            {/* Row 3: ขนาด จำนวน ราคา ค่าแรง */}
-            <div className="grid-row-4">
+            {/* Row 3: ขนาด (กว้าง/สูง แยกช่อง), จำนวน, ราคา, ค่าแรง */}
+            <div className="grid-row-5">
               <label>
-                <span className="field-label">ขนาด (กว้าง × สูง)</span>
+                <span className="field-label">ความกว้าง</span>
                 <input
-                  name="dimensions"
-                  value={dimensions}
-                  onChange={(e) => setDimensions(e.target.value)}
-                  placeholder="เช่น 1.2 x 2.4 ม., A3"
+                  name="width"
+                  value={width}
+                  onChange={(e) => setWidth(e.target.value)}
+                  placeholder="เช่น 1.2 ม., 80 cm"
                   className="wb-input"
                 />
               </label>
+              <label>
+                <span className="field-label">ความสูง / ยาว</span>
+                <input
+                  name="height"
+                  value={height}
+                  onChange={(e) => setHeight(e.target.value)}
+                  placeholder="เช่น 2.4 ม., 120 cm"
+                  className="wb-input"
+                />
+              </label>
+              <input type="hidden" name="dimensions" value={dimensions} />
               <label>
                 <span className="field-label">จำนวน (ชิ้น) <b className="req">*</b></span>
                 <input
@@ -323,10 +337,11 @@ export function JobForm({
                   onChange={(e) => setPriority(e.target.value)}
                   className="wb-select"
                 >
-                  <option value="NORMAL">ปกติ (Normal)</option>
-                  <option value="LOW">ต่ำ (Low)</option>
-                  <option value="HIGH">สูง (High)</option>
-                  <option value="URGENT">ด่วนพิเศษ (Urgent)</option>
+                  <option value="NORMAL">ปกติ</option>
+                  <option value="URGENT">ด่วน</option>
+                  <option value="VERY_URGENT">ด่วนพิเศษ</option>
+                  <option value="NOON">รับเที่ยง</option>
+                  <option value="EVENING">รับเย็น</option>
                 </select>
               </label>
               <label>
@@ -345,76 +360,11 @@ export function JobForm({
               </label>
             </div>
           </div>
-
-          {/* Real-time Financial Calculation Banner */}
-          <div className="wb-finance-banner">
-            <div className="wb-fin-box total">
-              <span className="fin-title">รวมยอดทั้งหมด</span>
-              <strong className="fin-val total-price">
-                ฿{calculatedTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-              </strong>
-              <input type="hidden" name="totalBaht" value={calculatedTotal} />
-            </div>
-
-            <div className="wb-fin-box deposit">
-              <span className="fin-title">ยอดมัดจำ</span>
-              <div className="fin-input-combo">
-                <input
-                  name="depositBaht"
-                  type="number"
-                  min="0"
-                  max={calculatedTotal}
-                  step="0.01"
-                  value={depositBaht}
-                  onChange={(e) => setDepositBaht(Math.max(0, parseFloat(e.target.value) || 0))}
-                  className="wb-input deposit-input"
-                  placeholder="0.00"
-                />
-                <select
-                  name="depositMethod"
-                  value={depositMethod}
-                  onChange={(e) => setDepositMethod(e.target.value)}
-                  className="wb-select deposit-select"
-                >
-                  <option value="BANK_TRANSFER">โอนจ่าย</option>
-                  <option value="CASH">เงินสด</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="wb-fin-box remaining">
-              <span className="fin-title">ยอดคงเหลือ</span>
-              <strong className={`fin-val ${calculatedRemaining > 0 ? 'text-red' : 'text-green'}`}>
-                ฿{calculatedRemaining.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-              </strong>
-              <div className="fin-radios">
-                <label className="radio-label">
-                  <input
-                    type="radio"
-                    name="remainingMethod"
-                    value="BANK_TRANSFER"
-                    checked={remainingMethod === 'BANK_TRANSFER'}
-                    onChange={() => setRemainingMethod('BANK_TRANSFER')}
-                  />
-                  <span>โอนจ่าย</span>
-                </label>
-                <label className="radio-label">
-                  <input
-                    type="radio"
-                    name="remainingMethod"
-                    value="CASH"
-                    checked={remainingMethod === 'CASH'}
-                    onChange={() => setRemainingMethod('CASH')}
-                  />
-                  <span>เงินสด</span>
-                </label>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* CARD 2: สเปกการผลิต & ตัวเลือก (Tabbed System) */}
         <div className="wb-card">
+
           <div className="wb-card-header">
             <Printer size={18} />
             <h3>สเปกการผลิตและตัวเลือก (Production Specs)</h3>
@@ -627,24 +577,7 @@ export function JobForm({
             {/* TAB 2: โครงสร้าง / บอร์ด */}
             {specTab === 'boards' && (
               <div className="tab-cols-4">
-                <div className="sub-category-box span-2">
-                  <h4 className="sub-cat-title">ฟิวเจอร์บอร์ด (ความหนา)</h4>
-                  <div className="thickness-badges-grid">
-                    {['1 มิล', '1.5 มิล', '2 มิล', '3 มิล', '5 มิล', '10 มิล', '15 มิล', '20 มิล', '25 มิล', '30 มิล'].map((t) => (
-                      <label key={t} className={`thickness-pill ${boardTypes.includes(`ฟิวเจอร์บอร์ด ${t}`) ? 'active' : ''}`}>
-                        <input
-                          type="checkbox"
-                          name="boardTypes"
-                          value={`ฟิวเจอร์บอร์ด ${t}`}
-                          checked={boardTypes.includes(`ฟิวเจอร์บอร์ด ${t}`)}
-                          onChange={() => handleCheckboxToggle(boardTypes, setBoardTypes, `ฟิวเจอร์บอร์ด ${t}`)}
-                        />
-                        <span>{t}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
+                {/* Column 1: บอร์ด & แผ่นเรียบ (Left) */}
                 <div className="sub-category-box">
                   <h4 className="sub-cat-title">บอร์ด & แผ่นเรียบ</h4>
                   <div className="sub-cat-list">
@@ -663,6 +596,30 @@ export function JobForm({
                   </div>
                 </div>
 
+                {/* Column 2 & 3: ฟิวเจอร์บอร์ด (ความหนา) */}
+                <div className="sub-category-box span-2">
+                  <h4 className="sub-cat-title">ฟิวเจอร์บอร์ด (ความหนา)</h4>
+                  <div className="thickness-badges-grid">
+                    {['1 มิล', '1.5 มิล', '2 มิล', '3 มิล', '5 มิล', '10 มิล', '15 มิล', '20 มิล', '25 มิล', '30 มิล'].map((t) => {
+                      const val = `ฟิวเจอร์บอร์ด ${t}`;
+                      const isSelected = boardTypes.includes(val);
+                      return (
+                        <label key={t} className={`thickness-pill ${isSelected ? 'active' : ''}`}>
+                          <input
+                            type="checkbox"
+                            name="boardTypes"
+                            value={val}
+                            checked={isSelected}
+                            onChange={() => handleCheckboxToggle(boardTypes, setBoardTypes, val)}
+                          />
+                          <span>{t}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Column 4: โครงสร้าง & ขาตั้ง (Right) */}
                 <div className="sub-category-box">
                   <h4 className="sub-cat-title">โครงสร้าง & ขาตั้ง</h4>
                   <div className="sub-cat-list">
@@ -805,19 +762,98 @@ export function JobForm({
         </div>
       </div>
 
-      {/* RIGHT COLUMN: Sticky Live Preview Card */}
+      {/* RIGHT COLUMN: Sticky Live Preview & Finance Banner */}
       <aside className="workbench-preview-sidebar">
+        {/* Real-time Financial Calculation Banner (Top Right) */}
+        <div className="wb-finance-banner top-sidebar-finance">
+          <div className="wb-fin-box total">
+            <span className="fin-title">รวมยอดทั้งหมด</span>
+            <strong className="fin-val total-price">
+              ฿{calculatedTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+            </strong>
+            <input type="hidden" name="totalBaht" value={calculatedTotal} />
+          </div>
+
+          <div className="wb-fin-box deposit">
+            <span className="fin-title">ยอดมัดจำ</span>
+            <div className="fin-input-combo">
+              <input
+                name="depositBaht"
+                type="number"
+                min="0"
+                max={calculatedTotal}
+                step="0.01"
+                value={depositBaht}
+                onChange={(e) => setDepositBaht(Math.max(0, parseFloat(e.target.value) || 0))}
+                className="wb-input deposit-input"
+                placeholder="0.00"
+              />
+              <select
+                name="depositMethod"
+                value={depositMethod}
+                onChange={(e) => setDepositMethod(e.target.value)}
+                className="wb-select deposit-select"
+              >
+                <option value="BANK_TRANSFER">โอนจ่าย</option>
+                <option value="CASH">เงินสด</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="wb-fin-box remaining">
+            <span className="fin-title">ยอดคงเหลือ</span>
+            <strong className={`fin-val ${calculatedRemaining > 0 ? 'text-red' : 'text-green'}`}>
+              ฿{calculatedRemaining.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+            </strong>
+            <div className="fin-radios">
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  name="remainingMethod"
+                  value="BANK_TRANSFER"
+                  checked={remainingMethod === 'BANK_TRANSFER'}
+                  onChange={() => setRemainingMethod('BANK_TRANSFER')}
+                />
+                <span>โอนจ่าย</span>
+              </label>
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  name="remainingMethod"
+                  value="CASH"
+                  checked={remainingMethod === 'CASH'}
+                  onChange={() => setRemainingMethod('CASH')}
+                />
+                <span>เงินสด</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Preview Card */}
         <div className="wb-preview-card">
           <div className="wb-preview-header">
             <div className="preview-heading-wrap">
-              <span className="live-sparkle-pill"><Sparkles size={13} /> Live Preview</span>
+              <span className="live-sparkle-pill"><Sparkles size={12} /> Live Preview</span>
               <h3>พรีวิวใบรับงาน</h3>
             </div>
             <div className="preview-header-right">
               {nextJobNumber && <span className="preview-job-num-tag">#{nextJobNumber}</span>}
-              <span className="preview-priority-badge">{priority === 'URGENT' ? 'ด่วนพิเศษ' : 'งานปกติ'}</span>
+              {priority !== 'NORMAL' && (
+                <span className={`preview-priority-badge ${
+                  priority === 'VERY_URGENT' ? 'very-urgent' :
+                  priority === 'URGENT' ? 'urgent' :
+                  priority === 'NOON' ? 'noon' : 'evening'
+                }`}>
+                  {priority === 'VERY_URGENT' ? 'ด่วนพิเศษ' :
+                   priority === 'URGENT' ? 'ด่วน' :
+                   priority === 'NOON' ? 'รับเที่ยง' :
+                   priority === 'EVENING' ? 'รับเย็น' : priority}
+                </span>
+              )}
             </div>
           </div>
+
 
           {/* Reference Image Container */}
           <div className="wb-image-preview-area">

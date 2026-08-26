@@ -13,7 +13,12 @@ export async function createJobAction(_state: JobFormState, formData: FormData):
   const title = String(formData.get('title') ?? '').trim();
   if (!customerId || !title) return { error: 'กรุณาเลือกลูกค้าและระบุชื่องาน' };
 
-  const dimensions = String(formData.get('dimensions') ?? '').trim();
+  let dimensions = String(formData.get('dimensions') ?? '').trim();
+  const width = String(formData.get('width') ?? '').trim();
+  const height = String(formData.get('height') ?? '').trim();
+  if (!dimensions && (width || height)) {
+    dimensions = width && height ? `${width} × ${height}` : (width || height);
+  }
   const material = String(formData.get('material') ?? '').trim();
   const quantity = Math.max(1, parseInt(String(formData.get('quantity') ?? '1'), 10) || 1);
   const unitPrice = parseFloat(String(formData.get('unitPrice') ?? '0')) || 0;
@@ -45,7 +50,10 @@ export async function createJobAction(_state: JobFormState, formData: FormData):
   const specObject = {
     receiverName,
     title,
+    width,
+    height,
     dimensions,
+    priority,
     quantity,
     unitPrice,
     installCost,
@@ -80,7 +88,8 @@ export async function createJobAction(_state: JobFormState, formData: FormData):
     brief_material: material || materials.join(', '),
     brief_quantity: quantity,
     target_deadline: deadline ? new Date(deadline).toISOString() : (dueDate ? new Date(dueDate).toISOString() : null),
-    target_priority: ['LOW', 'NORMAL', 'HIGH', 'URGENT'].includes(priority) ? priority : 'NORMAL',
+    target_priority: ['LOW', 'NORMAL', 'HIGH', 'URGENT'].includes(priority) ? priority : (['VERY_URGENT', 'NOON', 'EVENING'].includes(priority) ? 'URGENT' : 'NORMAL'),
+
     total_satang: Math.round(totalBaht * 100),
     target_graphic_id: graphicId,
   });

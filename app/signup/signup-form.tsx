@@ -59,19 +59,43 @@ export function SignupForm() {
         return;
       }
 
-      const { error: profileError } = await supabase.rpc('register_staff_member', {
-        member_full_name: fullName,
-        member_role_code: roleCode,
-      });
-      if (profileError) {
-        await supabase.auth.signOut();
-        setError(profileError.message.includes('profile_already_exists') ? 'ชื่อผู้ใช้นี้เป็นสมาชิกอยู่แล้ว กรุณาเข้าสู่ระบบ' : 'สร้างข้อมูลพนักงานไม่สำเร็จ กรุณาลองใหม่');
-        return;
+      const user = data.session.user;
+
+      // Query target role
+      let { data: targetRole } = await supabase
+        .from('roles')
+        .select('id, organization_id')
+        .eq('code', roleCode)
+        .limit(1)
+        .maybeSingle();
+
+      if (!targetRole) {
+        const { data: anyRole } = await supabase
+          .from('roles')
+          .select('id, organization_id')
+          .limit(1)
+          .maybeSingle();
+        targetRole = anyRole;
       }
 
-      await supabase.auth.signOut();
-      setMessage('สร้างบัญชีสำเร็จ กำลังพาไปหน้าเข้าสู่ระบบ');
-      router.replace('/login?registered=1');
+      const orgId = targetRole?.organization_id || 'a0000000-0000-0000-0000-000000000001';
+      const roleId = targetRole?.id;
+
+      // Save profile with is_active = false (requires Owner approval)
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: user.id,
+        organization_id: orgId,
+        role_id: roleId,
+        full_name: fullName,
+        is_active: false,
+      });
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+      }
+
+      setMessage('สร้างบัญชีสำเร็จแล้ว กำลังพาไปหน้ารอการอนุมัติ…');
+      router.replace('/pending-approval');
       router.refresh();
     } catch (cause) {
       console.error('Supabase signup request failed', cause);
@@ -81,13 +105,55 @@ export function SignupForm() {
     }
   }
 
-  return <form onSubmit={handleSubmit} className="login-form">
-    <label><span>ชื่อ–นามสกุล</span><div><input name="fullName" placeholder="ชื่อพนักงาน" required /></div></label>
-    <label><span>ชื่อผู้ใช้</span><div><input name="username" autoComplete="username" minLength={3} maxLength={32} pattern="[a-zA-Z0-9._-]+" placeholder="เช่น graphic01" required /></div></label>
-    <label><span>รหัสผ่าน</span><div><input name="password" type="password" minLength={8} placeholder="อย่างน้อย 8 ตัวอักษร" required /></div></label>
-    <label><span>ประเภทบัญชี</span><div><select name="roleCode" defaultValue="ADMIN"><option value="ADMIN">แอดมิน</option><option value="GRAPHIC">กราฟิก</option></select></div></label>
-    {error ? <p className="form-error" role="alert">{error}</p> : null}
-    {message ? <p className="form-success" role="status">{message}</p> : null}
-    <button type="submit" disabled={pending}>{pending ? 'กำลังสร้างบัญชี…' : 'สมัครสมาชิก'}</button>
-  </form>;
+  return (
+    <form onSubmit={handleSubmit} className="login-form">
+      <label>
+        <span>ชื่อ–นามสกุล</span>
+        <div>
+          <input name="fullName" placeholder="ชื่อพนักงาน" required />
+        </div>
+      </label>
+      <label>
+        <span>ชื่อผู้ใช้</span>
+        <div>
+          <input
+            name="username"
+            autoComplete="username"
+            minLength={3}
+            maxLength={32}
+            pattern="[a-zA-Z0-9._-]+"
+            placeholder="เช่น graphic01"
+            required
+          />
+        </div>
+      </label>
+      <label>
+        <span>รหัสผ่าน</span>
+        <div>
+          <input
+            name="password"
+            type="password"
+            minLength={8}
+            placeholder="อย่างน้อย 8 ตัวอักษร"
+            required
+          />
+        </div>
+      </label>
+      <label>
+        <span>ตำแหน่งที่สมัคร</span>
+        <div>
+          <select name="roleCode" defaultValue="ADMIN">
+            <option value="ADMIN">แอดมิน (รวมบัญชี)</option>
+            <option value="GRAPHIC">กราฟิก</option>
+            <option value="PRODUCTION">ช่าง</option>
+          </select>
+        </div>
+      </label>
+      {error ? <p className="form-error" role="alert">{error}</p> : null}
+      {message ? <p className="form-success" role="status">{message}</p> : null}
+      <button type="submit" disabled={pending}>
+        {pending ? 'กำลังสร้างบัญชี…' : 'สมัครสมาชิก'}
+      </button>
+    </form>
+  );
 }

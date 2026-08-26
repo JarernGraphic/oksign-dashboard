@@ -44,6 +44,16 @@ function formatThaiDate(dateString?: string | null) {
   }
 }
 
+function getPrintPriorityLabel(priority?: string) {
+  if (!priority || priority === 'NORMAL' || priority === 'ปกติ' || priority === 'LOW') return '';
+  if (priority === 'URGENT' || priority === 'ด่วน' || priority === 'HIGH') return 'ด่วน';
+  if (priority === 'VERY_URGENT' || priority === 'ด่วนพิเศษ') return 'ด่วนพิเศษ';
+  if (priority === 'NOON' || priority === 'รับเที่ยง') return 'รับเที่ยง';
+  if (priority === 'EVENING' || priority === 'รับเย็น') return 'รับเย็น';
+  return priority;
+}
+
+
 type JobDataResult = {
   id: string;
   job_number: string;
@@ -117,6 +127,7 @@ export default async function JobPrintPage({ params }: { params: Promise<{ id: s
   const contactChannel = spec.contactChannel || '';
   const openedDate = spec.openedDate || job.created_at;
   const dueDate = spec.dueDate || job.deadline;
+  const priorityLabel = getPrintPriorityLabel(spec.priority || job.priority);
 
   return (
     <div className="print-page-wrapper">
@@ -222,13 +233,21 @@ export default async function JobPrintPage({ params }: { params: Promise<{ id: s
 
           {/* Right Column */}
           <div className="a5-header-right">
-            {/* Job Code */}
-            <div className="a5-job-number-box">
-              <span className="job-label">รหัสงาน</span>
-              <div className="job-value-pill">
-                <strong>{job.job_number}</strong>
+            {/* Job Code & Priority Stamp */}
+            <div className="a5-job-header-flex">
+              <div className="a5-job-number-box">
+                <span className="job-label">รหัสงาน</span>
+                <div className="job-value-pill">
+                  <strong>{job.job_number}</strong>
+                </div>
               </div>
+              {priorityLabel ? (
+                <div className={`a5-priority-stamp-box ${priorityLabel === 'ด่วนพิเศษ' ? 'red-intense' : ''}`}>
+                  <span>{priorityLabel}</span>
+                </div>
+              ) : null}
             </div>
+
 
             {/* Dates */}
             <div className="a5-date-row">

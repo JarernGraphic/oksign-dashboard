@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { AppShell } from '../../../components/app-shell';
 import { getCurrentProfile } from '../../../lib/current-profile';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
@@ -27,25 +26,6 @@ export default async function NewJobPage() {
   }
   const nextJobNumber = `${prefix}${String(nextSeq).padStart(3, '0')}`;
 
-  if (!customers?.length) {
-    return (
-      <AppShell profile={profile} active="/jobs/new">
-        <div className="section-heading">
-          <div>
-            <p>งานขาย</p>
-            <h1>ใบรับงาน</h1>
-            <span>ต้องมีข้อมูลลูกค้าก่อน</span>
-          </div>
-        </div>
-        <div className="empty-state standalone">
-          <h3>ยังไม่มีลูกค้า</h3>
-          <p>เพิ่มลูกค้าก่อน แล้วข้อมูลจะถูกนำมาเปิด Job โดยไม่ต้องกรอกซ้ำ</p>
-          <Link className="primary-button" href="/customers/new">เพิ่มลูกค้า</Link>
-        </div>
-      </AppShell>
-    );
-  }
-
   return (
     <AppShell profile={profile} active="/jobs/new">
       <div className="job-order-container">
@@ -57,7 +37,7 @@ export default async function NewJobPage() {
           </div>
         </div>
         <JobForm
-          customers={customers as { id: string; name: string; phone?: string | null }[]}
+          customers={(customers ?? []) as { id: string; name: string; phone?: string | null }[]}
           graphics={(graphics ?? []).map((g) => ({ id: g.id, name: g.full_name }))}
           currentProfileName={profile.full_name}
           nextJobNumber={nextJobNumber}

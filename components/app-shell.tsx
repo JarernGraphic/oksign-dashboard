@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import {
-  Bell, Boxes, BriefcaseBusiness, ChevronDown, CircleDollarSign, ClipboardList, FileText,
-  LayoutDashboard, Paintbrush, Plus, Search, Settings, Truck, Users,
+  Bell, Boxes, BriefcaseBusiness, CircleDollarSign, ClipboardList, FileText,
+  LayoutDashboard, LogOut, Paintbrush, Plus, Search, Settings, Truck, Users,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { CurrentProfile } from '../lib/current-profile';
@@ -27,20 +27,100 @@ const navigation = [
 ];
 
 export function AppShell({ children, profile, active, createHref = '/jobs/new' }: { children: ReactNode; profile: CurrentProfile; active: string; createHref?: string }) {
-  return <main className="app-shell">
-    <aside className="sidebar">
-      <Link href="/" className="brand"><img src="/oksign_logo.png" alt="OKSIGN Logo" className="brand-logo" /><div><strong>OKSIGN</strong><span>Dashboard</span></div></Link>
-      <nav className="navigation" aria-label="เมนูหลัก">
-        {navigation.map((section) => <div className="nav-section" key={section.label}><p>{section.label}</p>{section.items.map((item) => {
-          const Icon = item.icon;
-          return <Link className={`nav-item ${active === item.href ? 'active' : ''}`} href={item.href} key={item.name}><Icon size={18} /><span>{item.name}</span></Link>;
-        })}</div>)}
-      </nav>
-      <form action={logoutAction}><button className="sidebar-user" type="submit" title="ออกจากระบบ"><div className="avatar">{profile.full_name.slice(0,1)}</div><div><strong>{profile.full_name}</strong><span>{profile.role.name_th}</span></div><ChevronDown size={16} /></button></form>
-    </aside>
-    <section className="workspace">
-      <header className="topbar"><div className="mobile-brand"><img src="/oksign_logo.png" alt="OKSIGN" className="mobile-brand-logo" /><span>OKSIGN</span></div><form className="global-search" action="/search"><Search size={18} /><input name="q" aria-label="ค้นหาทั้งระบบ" placeholder="ค้นหาเลขที่งาน ลูกค้า เบอร์โทร..." /><kbd>Enter</kbd></form><div className="top-actions"><Link className="icon-button" href="/notifications" aria-label="การแจ้งเตือน"><Bell size={20} /></Link><Link className="primary-button" href={createHref}><Plus size={18} />สร้างงานใหม่</Link></div></header>
-      <div className="content">{children}<footer><span>{profile.organization.name} · OKSIGN Dashboard</span><span>เชื่อมต่อฐานข้อมูลแล้ว <i /></span></footer></div>
-    </section>
-  </main>;
+  return (
+    <main className="app-shell">
+      <aside className="sidebar">
+        <Link href="/" className="brand">
+          <img src="/oksign_logo.png" alt="OKSIGN Logo" className="brand-logo" />
+          <div><strong>OKSIGN</strong><span>Dashboard</span></div>
+        </Link>
+        <nav className="navigation" aria-label="เมนูหลัก">
+          {navigation.map((section) => (
+            <div className="nav-section" key={section.label}>
+              <p>{section.label}</p>
+              {section.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link className={`nav-item ${active === item.href ? 'active' : ''}`} href={item.href} key={item.name}>
+                    <Icon size={18} />
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+        <div style={{ borderTop: '1px solid var(--line)', paddingTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <Link href="/settings" className="sidebar-user" style={{ flex: 1, textDecoration: 'none', borderTop: 'none' }} title="ไปยังหน้าการตั้งค่า">
+            {profile.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={profile.full_name}
+                style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover' }}
+              />
+            ) : (
+              <div className="avatar">{profile.full_name.slice(0, 1)}</div>
+            )}
+            <div>
+              <strong>{profile.full_name}</strong>
+              <span>
+                {(() => {
+                  const code = profile.role?.code;
+                  if (code === 'OWNER') return 'เจ้าของร้าน';
+                  if (code === 'ADMIN') return 'แอดมิน (รวมบัญชี)';
+                  if (code === 'GRAPHIC') return 'กราฟิก';
+                  if (code === 'PRODUCTION') return 'ช่าง';
+                  return profile.role?.name_th || 'เจ้าของร้าน';
+                })()}
+              </span>
+            </div>
+          </Link>
+          <form action={logoutAction} style={{ margin: 0 }}>
+            <button
+              type="submit"
+              title="ออกจากระบบ"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '8px',
+                borderRadius: '6px',
+                color: '#71717a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'background-color 0.15s, color 0.15s',
+              }}
+            >
+              <LogOut size={16} />
+            </button>
+          </form>
+        </div>
+      </aside>
+      <section className="workspace">
+        <header className="topbar">
+          <div className="mobile-brand">
+            <img src="/oksign_logo.png" alt="OKSIGN" className="mobile-brand-logo" />
+            <span>OKSIGN</span>
+          </div>
+          <form className="global-search" action="/search">
+            <Search size={18} />
+            <input name="q" aria-label="ค้นหาทั้งระบบ" placeholder="ค้นหาเลขที่งาน ลูกค้า เบอร์โทร..." />
+            <kbd>Enter</kbd>
+          </form>
+          <div className="top-actions">
+            <Link className="icon-button" href="/notifications" aria-label="การแจ้งเตือน"><Bell size={20} /></Link>
+            <Link className="primary-button" href={createHref}><Plus size={18} />สร้างงานใหม่</Link>
+          </div>
+        </header>
+        <div className="content">
+          {children}
+          <footer>
+            <span>{profile.organization.name} · OKSIGN Dashboard</span>
+            <span>เชื่อมต่อฐานข้อมูลแล้ว <i /></span>
+          </footer>
+        </div>
+      </section>
+    </main>
+  );
 }
