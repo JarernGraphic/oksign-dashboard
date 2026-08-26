@@ -10,18 +10,24 @@ import { createSupabaseServerClient } from '../../../lib/supabase/server';
 import { PaymentForm } from '../../payments/payment-form';
 import { updateJobStageAction } from '../actions';
 
+import { DesignWorkbench, type DesignProof } from '../../../components/design-workbench';
+
 type JobDetail = {
   id: string;
   job_number: string;
   title: string;
   stage: string;
   status: string;
+  design_status: string;
+  accepted_at: string | null;
+  approved_at: string | null;
   priority: string;
   deadline: string | null;
   grand_total_satang: number;
   paid_amount_satang: number;
   created_at: string;
   assigned_graphic_id: string | null;
+  assigned_graphic?: { full_name: string } | null;
   customer: { name: string; phone: string | null; line_name: string | null } | null;
   brief: { requirements: string; dimensions: string | null; material: string | null; quantity: number } | null;
 };
@@ -63,6 +69,12 @@ const actionLabels: Record<string, string> = {
   JOB_CREATED: 'สร้าง Job',
   JOB_CREATED_FROM_QUOTATION: 'สร้าง Job จากใบเสนอราคา',
   PAYMENT_RECORDED: 'บันทึกรับชำระเงิน',
+  GRAPHIC_ACCEPTED_JOB: 'กราฟิกยืนยันรับงานออกแบบ',
+  DESIGN_PROOF_UPLOADED_V1: 'อัปโหลดแบบร่าง v1',
+  DESIGN_PROOF_UPLOADED_V2: 'อัปโหลดแบบร่าง v2',
+  DESIGN_PROOF_UPLOADED_V3: 'อัปโหลดแบบร่าง v3',
+  CUSTOMER_APPROVED_DESIGN: 'ลูกค้ายืนยันแบบแล้ว',
+  GRAPHIC_CONFIRMED_PRODUCTION: 'กราฟิกยืนยันส่งผลิต',
   STAGE_CHANGED_DESIGN: 'ส่งเข้าฝ่ายออกแบบ',
   STAGE_CHANGED_PRODUCTION: 'อนุมัติและส่งผลิต',
   STAGE_CHANGED_DELIVERY: 'ผลิตเสร็จและรอส่งมอบ',
@@ -151,6 +163,50 @@ export default async function JobDetailPage({
 
   if (!jobData) notFound();
   const job = jobData as unknown as JobDetail;
+
+  // Safely fetch design status & proofs (handles cases where DB migration isn't applied remotely)
+  let design_status = 'WAITING_DESIGN';
+  let accepted_at: string | null = null;
+  let approved_at: string | null = null;
+  let proofsData: any[] = [];
+
+  try {
+    const { data: extraJobFields } = await supabase
+      .from('jobs')
+      .select('design_status, accepted_at, approved_at')
+      .eq('id', id)
+      .single();
+    if (extraJobFields) {
+      if (extraJobFields.design_status) design_status = extraJobFields.design_status;
+      if (extraJobFields.accepted_at) accepted_at = extraJobFields.accepted_at;
+      if (extraJobFields.approved_at) approved_at = extraJobFields.approved_at;
+    }
+  } catch {
+    // Ignore if columns do not exist yet
+  }
+
+  try {
+    const { data: proofs } = await supabase
+      .from('job_design_proofs')
+      .select('id, version, image_url, note, created_at, creator:profiles(full_name)')
+      .eq('job_id', id)
+      .order('version', { ascending: false });
+    if (proofs) proofsData = proofs;
+  } catch {
+    // Ignore if table does not exist yet
+  }
+
+  let assignedGraphicName = '';
+  if (job.assigned_graphic_id) {
+    const { data: graphicProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', job.assigned_graphic_id)
+      .single();
+    if (graphicProfile?.full_name) {
+      assignedGraphicName = graphicProfile.full_name;
+    }
+  }
   const payments = (paymentsData ?? []) as Payment[];
   const activities = (activitiesData ?? []) as unknown as Activity[];
   const remaining = job.grand_total_satang - job.paid_amount_satang;
@@ -227,6 +283,19 @@ export default async function JobDetailPage({
           </div>
         ))}
       </div>
+
+      {/* DESIGN WORKBENCH & PROOF MANAGEMENT */}
+      <DesignWorkbench
+        jobId={job.id}
+        stage={job.stage}
+        designStatus={design_status}
+        acceptedAt={accepted_at}
+        approvedAt={approved_at}
+        assignedGraphicName={assignedGraphicName}
+        isAssignedGraphic={Boolean(job.assigned_graphic_id && job.assigned_graphic_id === profile.id)}
+        isOwnerOrAdmin={['OWNER', 'ADMIN'].includes(profile.role?.code || '')}
+        proofs={proofsData as unknown as DesignProof[]}
+      />
 
       <div className="detail-grid">
         <div className="detail-main">

@@ -11,6 +11,7 @@ export type CurrentProfile = {
   is_active: boolean;
   role: { code: string; name_th: string };
   organization: { name: string };
+  unreadCount?: number;
 };
 
 export async function getCurrentProfile(): Promise<CurrentProfile> {
@@ -102,6 +103,18 @@ export async function getCurrentProfile(): Promise<CurrentProfile> {
       redirect('/pending-approval');
     }
 
+    let unreadCount = 0;
+    try {
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('recipient_id', profile.id)
+        .eq('is_read', false);
+      if (count) unreadCount = count;
+    } catch {
+      // Ignore if table does not exist
+    }
+
     return {
       id: profile.id,
       organization_id: profile.organization_id || OKSIGN_ORG_ID,
@@ -110,6 +123,7 @@ export async function getCurrentProfile(): Promise<CurrentProfile> {
       is_active: profile.is_active ?? true,
       role: (profile.role as any) || { code: 'OWNER', name_th: 'เจ้าของร้าน' },
       organization: (profile.organization as any) || { name: 'OKSIGN' },
+      unreadCount,
     };
   }
 

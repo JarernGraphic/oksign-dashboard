@@ -38,3 +38,5 @@ next-env.d.ts
 /outputs/
 /work/
 *.tsbuildinfo
+line-login-auth-system.zip
+line-login-system-package/

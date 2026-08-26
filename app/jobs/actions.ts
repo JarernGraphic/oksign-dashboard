@@ -142,6 +142,25 @@ export async function createJobAction(_state: JobFormState, formData: FormData):
 
   revalidatePath('/jobs');
   revalidatePath('/');
+  revalidatePath('/notifications');
+
+  // Trigger notification to graphic designer if assigned
+  if (graphicId && newJobId) {
+    try {
+      await supabase.from('notifications').insert({
+        organization_id: profile.organization_id,
+        recipient_id: graphicId,
+        sender_id: profile.id,
+        job_id: String(newJobId),
+        notification_type: 'JOB_ASSIGNED',
+        title: `คุณได้รับมอบหมายงานใหม่ [${title}]`,
+        message: `คุณได้รับการมอบหมายให้ออกแบบงาน: ${title}`,
+      });
+    } catch {
+      // Ignore notification insert error if table not yet initialized
+    }
+  }
+
   redirect(`/jobs/${String(newJobId)}?created=1`);
 }
 
@@ -226,3 +245,186 @@ export async function recordPaymentAction(_state: PaymentFormState, formData: Fo
   revalidatePath('/payments');
   return { success: 'บันทึกรับชำระเรียบร้อยแล้ว' };
 }
+
+// ----------------------------------------------------
+// DESIGN WORKFLOW ACTIONS
+// ----------------------------------------------------
+
+export async function acceptJobAction(formData: FormData) {
+  const jobId = String(formData.get('jobId') ?? '').trim();
+  if (!jobId) return;
+
+  const profile = await getCurrentProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const nowIso = new Date().toISOString();
+  await supabase.from('jobs').update({
+    stage: 'DESIGN',
+    design_status: 'DESIGNING',
+    accepted_at: nowIso,
+  }).eq('id', jobId);
+
+  await supabase.from('activity_logs').insert({
+    organization_id: profile.organization_id,
+    entity_type: 'JOB',
+    entity_id: jobId,
+    action: 'GRAPHIC_ACCEPTED_JOB',
+    user_id: profile.id,
+    metadata: {},
+  });
+
+  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath('/jobs');
+  revalidatePath('/');
+}
+
+export type DesignProofFormState = { error?: string; success?: string };
+
+export async function uploadDesignProofAction(_state: DesignProofFormState, formData: FormData): Promise<DesignProofFormState> {
+  const jobId = String(formData.get('jobId') ?? '').trim();
+  const note = String(formData.get('note') ?? '').trim();
+  const proofUrlInput = String(formData.get('proofUrl') ?? '').trim();
+  const proofFile = formData.get('proofFile');
+
+  if (!jobId) return { error: 'ระบุ Job ไม่ถูกต้อง' };
+  if (!proofUrlInput && (!proofFile || !(proofFile instanceof File) || proofFile.size === 0)) {
+    return { error: 'กรุณาอัปโหลดไฟล์รูปตัวอย่าง หรือระบุลิงก์รูปภาพแบบ' };
+  }
+
+  const profile = await getCurrentProfile();
+  const supabase = await createSupabaseServerClient();
+
+  let imageUrl = proofUrlInput;
+
+  if (proofFile instanceof File && proofFile.size > 0) {
+    if (proofFile.size > 10 * 1024 * 1024) {
+      return { error: 'ขนาดไฟล์รูปต้องไม่เกิน 10 MB' };
+    }
+    const bytes = await proofFile.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const base64 = buffer.toString('base64');
+    const mime = proofFile.type || 'image/png';
+    imageUrl = `data:${mime};base64,${base64}`;
+  }
+
+  // Get current max version
+  const { data: existingProofs } = await supabase
+    .from('job_design_proofs')
+    .select('version')
+    .eq('job_id', jobId)
+    .order('version', { ascending: false })
+    .limit(1);
+
+  const nextVersion = (existingProofs?.[0]?.version ?? 0) + 1;
+
+  const { error: insertError } = await supabase.from('job_design_proofs').insert({
+    organization_id: profile.organization_id,
+    job_id: jobId,
+    version: nextVersion,
+    image_url: imageUrl,
+    note: note || `ส่งแบบร่างเวอร์ชัน v${nextVersion}`,
+    created_by: profile.id,
+  });
+
+  if (insertError) {
+    return { error: `ไม่สามารถบันทึกแบบร่างได้: ${insertError.message}` };
+  }
+
+  await supabase.from('jobs').update({
+    stage: 'DESIGN',
+    design_status: 'WAITING_CUSTOMER',
+  }).eq('id', jobId);
+
+  await supabase.from('activity_logs').insert({
+    organization_id: profile.organization_id,
+    entity_type: 'JOB',
+    entity_id: jobId,
+    action: `DESIGN_PROOF_UPLOADED_V${nextVersion}`,
+    user_id: profile.id,
+    metadata: { version: nextVersion, note },
+  });
+
+  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath('/jobs');
+  revalidatePath('/');
+
+  return { success: `อัปโหลดแบบร่าง v${nextVersion} เรียบร้อยแล้ว` };
+}
+
+export async function confirmCustomerApproveAction(formData: FormData) {
+  const jobId = String(formData.get('jobId') ?? '').trim();
+  if (!jobId) return;
+
+  const profile = await getCurrentProfile();
+  const supabase = await createSupabaseServerClient();
+  const nowIso = new Date().toISOString();
+
+  await supabase.from('jobs').update({
+    design_status: 'APPROVED',
+    approved_at: nowIso,
+  }).eq('id', jobId);
+
+  // Notify assigned graphic designer
+  const { data: jobInfo } = await supabase
+    .from('jobs')
+    .select('job_number, title, assigned_graphic_id')
+    .eq('id', jobId)
+    .single();
+
+  if (jobInfo?.assigned_graphic_id) {
+    try {
+      await supabase.from('notifications').insert({
+        organization_id: profile.organization_id,
+        recipient_id: jobInfo.assigned_graphic_id,
+        sender_id: profile.id,
+        job_id: jobId,
+        notification_type: 'CUSTOMER_APPROVED',
+        title: `ลูกค้ายืนยันแบบแล้ว [${jobInfo.job_number}]`,
+        message: `งาน "${jobInfo.title}" ผ่านการอนุมัติแบบแล้ว สามารถส่งไฟล์เข้าโฟลเดอร์ผลิตและยืนยันการผลิตได้`,
+      });
+    } catch {
+      // Ignore notification insert error if table not yet initialized
+    }
+  }
+
+  await supabase.from('activity_logs').insert({
+    organization_id: profile.organization_id,
+    entity_type: 'JOB',
+    entity_id: jobId,
+    action: 'CUSTOMER_APPROVED_DESIGN',
+    user_id: profile.id,
+    metadata: {},
+  });
+
+  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath('/jobs');
+  revalidatePath('/notifications');
+  revalidatePath('/');
+}
+
+export async function confirmProductionReadyAction(formData: FormData) {
+  const jobId = String(formData.get('jobId') ?? '').trim();
+  if (!jobId) return;
+
+  const profile = await getCurrentProfile();
+  const supabase = await createSupabaseServerClient();
+
+  await supabase.from('jobs').update({
+    stage: 'PRODUCTION',
+    design_status: 'APPROVED',
+  }).eq('id', jobId);
+
+  await supabase.from('activity_logs').insert({
+    organization_id: profile.organization_id,
+    entity_type: 'JOB',
+    entity_id: jobId,
+    action: 'GRAPHIC_CONFIRMED_PRODUCTION',
+    user_id: profile.id,
+    metadata: {},
+  });
+
+  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath('/jobs');
+  revalidatePath('/');
+}
+

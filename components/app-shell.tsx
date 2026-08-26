@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import {
-  Bell, Boxes, BriefcaseBusiness, CircleDollarSign, ClipboardList, FileText,
-  LayoutDashboard, LogOut, Paintbrush, Plus, Search, Settings, Truck, Users,
+  Bell, BriefcaseBusiness, CircleDollarSign, ClipboardList, FileText,
+  LayoutDashboard, LogOut, Paintbrush, Plus, Search, Settings, Users,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { CurrentProfile } from '../lib/current-profile';
@@ -11,22 +11,32 @@ const navigation = [
   { label: 'ภาพรวม', items: [{ name: 'แดชบอร์ด', icon: LayoutDashboard, href: '/' }] },
   { label: 'งานขาย', items: [
     { name: 'ใบรับงาน', icon: ClipboardList, href: '/jobs/new' },
-    { name: 'ลูกค้า', icon: Users, href: '/customers' },
-    { name: 'ใบเสนอราคา', icon: FileText, href: '/quotations' },
     { name: 'รายการงาน', icon: BriefcaseBusiness, href: '/jobs' },
+    { name: 'ลูกค้า', icon: Users, href: '/customers' },
   ] },
   { label: 'การดำเนินงาน', items: [
     { name: 'งานออกแบบ', icon: Paintbrush, href: '/jobs?stage=DESIGN' },
-    { name: 'งานผลิต', icon: Boxes, href: '/jobs?stage=PRODUCTION' },
-    { name: 'จัดส่ง / ติดตั้ง', icon: Truck, href: '/jobs?stage=DELIVERY' },
   ] },
   { label: 'การเงินและระบบ', items: [
+    { name: 'ใบเสนอราคา', icon: FileText, href: '/quotations' },
     { name: 'รับชำระเงิน', icon: CircleDollarSign, href: '/payments' },
     { name: 'ตั้งค่า', icon: Settings, href: '/settings' },
   ] },
 ];
 
-export function AppShell({ children, profile, active, createHref = '/jobs/new' }: { children: ReactNode; profile: CurrentProfile; active: string; createHref?: string }) {
+export function AppShell({
+  children,
+  profile,
+  active,
+  createHref = '/jobs/new',
+  showCreateButton = true,
+}: {
+  children: ReactNode;
+  profile: CurrentProfile;
+  active: string;
+  createHref?: string;
+  showCreateButton?: boolean;
+}) {
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -109,8 +119,27 @@ export function AppShell({ children, profile, active, createHref = '/jobs/new' }
             <kbd>Enter</kbd>
           </form>
           <div className="top-actions">
-            <Link className="icon-button" href="/notifications" aria-label="การแจ้งเตือน"><Bell size={20} /></Link>
-            <Link className="primary-button" href={createHref}><Plus size={18} />สร้างงานใหม่</Link>
+            <Link className="icon-button" href="/notifications" aria-label="การแจ้งเตือน" style={{ position: 'relative' }}>
+              <Bell size={20} />
+              {profile.unreadCount && profile.unreadCount > 0 ? (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '2px',
+                    right: '2px',
+                    width: '9px',
+                    height: '9px',
+                    backgroundColor: '#ef4444',
+                    borderRadius: '50%',
+                    border: '2px solid #ffffff'
+                  }}
+                  title={`มี ${profile.unreadCount} การแจ้งเตือนใหม่`}
+                />
+              ) : null}
+            </Link>
+            {showCreateButton ? (
+              <Link className="primary-button" href={createHref}><Plus size={18} />สร้างงานใหม่</Link>
+            ) : null}
           </div>
         </header>
         <div className="content">
