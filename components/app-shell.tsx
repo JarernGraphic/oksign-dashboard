@@ -4,8 +4,8 @@ import {
   LayoutDashboard, LogOut, Paintbrush, Plus, Search, Settings, Users,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { CurrentProfile } from '../lib/current-profile';
 import { logoutAction } from '../app/actions';
+import { ThemeToggle } from './theme-toggle';
 
 const navigation = [
   { label: 'ภาพรวม', items: [{ name: 'แดชบอร์ด', icon: LayoutDashboard, href: '/' }] },
@@ -118,7 +118,8 @@ export function AppShell({
             <input name="q" aria-label="ค้นหาทั้งระบบ" placeholder="ค้นหาเลขที่งาน ลูกค้า เบอร์โทร..." />
             <kbd>Enter</kbd>
           </form>
-          <div className="top-actions">
+          <div className="top-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <ThemeToggle />
             <Link className="icon-button" href="/notifications" aria-label="การแจ้งเตือน" style={{ position: 'relative' }}>
               <Bell size={20} />
               {profile.unreadCount && profile.unreadCount > 0 ? (
@@ -137,9 +138,6 @@ export function AppShell({
                 />
               ) : null}
             </Link>
-            {showCreateButton ? (
-              <Link className="primary-button" href={createHref}><Plus size={18} />สร้างงานใหม่</Link>
-            ) : null}
           </div>
         </header>
         <div className="content">
