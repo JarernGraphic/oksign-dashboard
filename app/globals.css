@@ -3716,13 +3716,14 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
   display: grid;
   gap: 6px;
 }
-.cat-content-grid.col-4 { grid-template-columns: 115px 185px 110px 1fr; }
-.cat-content-grid.col-3 { grid-template-columns: 210px 1.2fr 1fr; }
+.cat-content-grid.col-4 { grid-template-columns: 1.05fr 1.35fr 1fr 1.45fr; }
+.cat-content-grid.col-3 { grid-template-columns: 1.3fr 1.3fr 1fr; }
 
 .cat-col {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .vinyl-sub-frame {
@@ -3843,54 +3844,370 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
 }
 
 /* ==========================================================================
-   PRINT MEDIA RULES (Exact A5 Size)
+   PRINT MEDIA RULES (Exact A5 Single-Page Size)
    ========================================================================== */
 @media print {
   @page {
     size: A5 portrait;
     margin: 0.5cm;
   }
-  body, html {
-    background: #ffffff !important;
-    padding: 0 !important;
+  html, body {
+    width: 100% !important;
+    height: 100% !important;
     margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    width: 100% !important;
-    height: auto !important;
+    overflow: hidden !important;
   }
-  .no-print, .app-shell, .sidebar, .topbar, .print-screen-header, .print-header-bar {
+  .no-print, .app-shell, .sidebar, .topbar, .print-screen-header, .print-header-bar, .embedded-paper-toolbar {
     display: none !important;
   }
   .print-page-wrapper {
-    background: #ffffff !important;
+    background: transparent !important;
     padding: 0 !important;
     margin: 0 !important;
     min-height: auto !important;
     display: block !important;
+    width: 100% !important;
   }
   .print-a5-container {
-    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
     margin: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
+    padding: 0 !important;
   }
-  .paper-form-sheet {
-    box-shadow: none !important;
-    border: 1.5px solid #000000 !important;
-    border-radius: 8px !important;
+  .paper-form-sheet,
+  .paper-form-sheet.print-mode {
     width: 100% !important;
     max-width: 100% !important;
-    padding: 8px 12px !important;
-    margin: 0 auto !important;
+    height: auto !important;
+    max-height: 198mm !important;
+    padding: 3mm 4mm !important;
+    margin: 0 !important;
+    border: 1.2px solid #000000 !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    gap: 2.5px !important;
+    font-size: 7pt !important;
+    line-height: 1.12 !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  /* Top Section */
+  .paper-top-grid {
+    gap: 6px !important;
+    grid-template-columns: 1.25fr 1fr !important;
+  }
+  .paper-header-left {
+    gap: 2px !important;
+  }
+  .paper-row-inline {
+    gap: 4px !important;
+  }
+  .paper-badge-title {
+    font-size: 8.2pt !important;
+    padding: 1px 6px !important;
+    border-radius: 6px !important;
+  }
+  .paper-field-box {
+    min-height: 17px !important;
+    padding: 1px 5px !important;
+    border-width: 1.2px !important;
+    border-radius: 4px !important;
+    gap: 3px !important;
+  }
+  .paper-field-label {
+    font-size: 6.8pt !important;
+  }
+  .paper-val-display {
+    font-size: 7.5pt !important;
+  }
+  .paper-line-dotted {
+    padding: 0px 0 !important;
+    gap: 4px !important;
+    font-size: 6.8pt !important;
+  }
+  .paper-line-label {
+    font-size: 6.8pt !important;
+  }
+  .paper-dim-inputs, .num-val, .dim-val, .text-val {
+    font-size: 7pt !important;
+  }
+  .paper-unit {
+    font-size: 6pt !important;
+  }
+  .paper-box-total {
+    padding: 1px 5px !important;
+    border-width: 1.2px !important;
+    border-radius: 4px !important;
+  }
+  .paper-total-label {
+    font-size: 7.5pt !important;
+  }
+  .paper-total-amount {
+    font-size: 9pt !important;
+  }
+  .paper-box-payment {
+    padding: 0px 5px !important;
+    border-width: 1.2px !important;
+    border-radius: 4px !important;
+  }
+  .pay-label {
+    font-size: 6.8pt !important;
+  }
+  .deposit-val-display, .remaining-val-display {
+    font-size: 7.5pt !important;
+  }
+  .paper-radio-label {
+    font-size: 6.2pt !important;
+    gap: 2px !important;
+  }
+  .paper-radio-label input {
+    width: 8px !important;
+    height: 8px !important;
+  }
+
+  /* Top Right Section */
+  .paper-header-right {
+    gap: 2px !important;
+  }
+  .paper-job-label {
+    font-size: 6.8pt !important;
+  }
+  .paper-job-value-pill {
+    padding: 0px 5px !important;
+    border-width: 1.3px !important;
+    border-radius: 6px !important;
+  }
+  .job-num-part {
+    font-size: 11.5pt !important;
   }
   .paper-urgent-stamp-badge {
-    border: 2px solid #dc2626 !important;
-    color: #dc2626 !important;
+    top: -2px !important;
+    right: -4px !important;
+    font-size: 7.8pt !important;
+    padding: 1px 4px !important;
+    border-width: 1.4px !important;
+    border-radius: 4px !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+  .paper-date-row {
+    margin-top: 0px !important;
+  }
+  .paper-date-row p {
+    font-size: 6.2pt !important;
+  }
+  .paper-date-input-wrap {
+    padding: 0 !important;
+    border-bottom-width: 1px !important;
+  }
+  .date-val-box {
+    font-size: 7pt !important;
+    padding: 0 !important;
+  }
+  .paper-design-status-checks {
+    gap: 3px !important;
+    margin-top: 0px !important;
+  }
+  .paper-check-box-label {
+    font-size: 6.5pt !important;
+    gap: 2px !important;
+  }
+  .paper-check-box-label input {
+    width: 8px !important;
+    height: 8px !important;
+  }
+  .paper-channel-section {
+    gap: 1.5px !important;
+    margin-top: 0px !important;
+  }
+  .paper-channel-line-pills {
+    gap: 2px !important;
+  }
+  .paper-ch-pill {
+    font-size: 5.8pt !important;
+    padding: 0 2.5px !important;
+    border-radius: 3px !important;
+  }
+  .paper-channel-badge-header {
+    font-size: 6.2pt !important;
+    padding: 0.5px 3px !important;
+    border-radius: 5px !important;
+  }
+  .paper-contact-inputs-list {
+    gap: 1.5px !important;
+    margin-top: 0px !important;
+  }
+  .paper-contact-line {
+    gap: 4px !important;
+  }
+  .contact-icon-circle {
+    width: 12px !important;
+    height: 12px !important;
+    padding: 1px !important;
+    border-width: 0.8px !important;
+  }
+  .contact-val-text {
+    font-size: 6.5pt !important;
+  }
+
+  /* Middle Shapes & Stamp */
+  .paper-middle-grid-2row {
+    gap: 2px 4px !important;
+    margin-top: 0px !important;
+    grid-template-columns: 1.25fr 1fr 1fr !important;
+  }
+  .paper-shapes-group {
+    height: 20px !important;
+    padding: 0px !important;
+    border-width: 1.2px !important;
+    border-radius: 4px !important;
+  }
+  .shape-wrapper {
+    transform: scale(0.6);
+  }
+  .shape-red-check {
+    font-size: 9px !important;
+  }
+  .paper-stamp-box {
+    padding: 1px 2px !important;
+    border-width: 1.2px !important;
+    border-radius: 4px !important;
+  }
+  .stamp-label-top {
+    font-size: 6.8pt !important;
+  }
+  .paper-printer-row-inner {
+    gap: 6px !important;
+    padding: 0px 0 !important;
+  }
+  .paper-printer-badge {
+    font-size: 6.5pt !important;
+    padding: 0.5px 3px !important;
+    border-radius: 3px !important;
+  }
+
+  /* Category Blocks */
+  .paper-category-block {
+    padding-top: 1.5px !important;
+    gap: 3px !important;
+    margin-top: 0.5px !important;
+    border-top-width: 1px !important;
+  }
+  .cat-badge-wrap {
+    width: 13px !important;
+  }
+  .cat-badge {
+    font-size: 5.8pt !important;
+    padding: 1px 1.5px !important;
+    border-radius: 3px !important;
+    line-height: 1.05 !important;
+  }
+  .cat-content-grid {
+    gap: 2.5px !important;
+  }
+  .cat-content-grid.col-4 {
+    grid-template-columns: 1.05fr 1.35fr 1fr 1.45fr !important;
+    gap: 2.5px !important;
+  }
+  .cat-content-grid.col-3 {
+    grid-template-columns: 1.3fr 1.3fr 1fr !important;
+    gap: 2.5px !important;
+  }
+  .cat-col {
+    gap: 0.5px !important;
+  }
+  .paper-check-item {
+    font-size: 6.5pt !important;
+    gap: 2.5px !important;
+    white-space: nowrap !important;
+  }
+  .paper-check-item input {
+    width: 8px !important;
+    height: 8px !important;
+  }
+  .vinyl-sub-frame-box {
+    padding: 1.5px 2.5px !important;
+    margin-bottom: 0.5px !important;
+    border-width: 0.9px !important;
+    border-radius: 3px !important;
+  }
+  .vinyl-sub-grid {
+    gap: 0.5px 3px !important;
+  }
+  .vinyl-sub-grid .paper-check-item.mini span {
+    font-size: 5.8pt !important;
+    white-space: nowrap !important;
+  }
+  .custom-material-line, .custom-finishing-line {
+    font-size: 6.5pt !important;
+    gap: 2px !important;
+  }
+  .custom-material-line span, .custom-finishing-line span, .mini-text-val {
+    font-size: 6.5pt !important;
+  }
+  .thickness-matrix-box {
+    padding: 1.5px 2.5px !important;
+    border-width: 0.9px !important;
+    border-radius: 3px !important;
+  }
+  .thickness-matrix {
+    gap: 0.5px !important;
+  }
+  .thick-row {
+    gap: 1.5px !important;
+  }
+  .paper-check-item.mini.pill-box {
+    width: 40px !important;
+    height: 13px !important;
+    font-size: 5.8pt !important;
+    padding: 0 1px !important;
+    border-width: 0.9px !important;
+    border-radius: 2px !important;
+    gap: 1px !important;
+  }
+  .paper-check-item.mini.pill-box input {
+    width: 7px !important;
+    height: 7px !important;
+  }
+  .tube-dir-boxes {
+    gap: 1px !important;
+  }
+  .tube-box-btn {
+    padding: 0 2px !important;
+    font-size: 5.8pt !important;
+    border-width: 0.9px !important;
+    border-radius: 2px !important;
+  }
+
+  /* Notes Section */
+  .paper-notes-section {
+    padding-top: 1.5px !important;
+    gap: 0.5px !important;
+    margin-top: 0.5px !important;
+    border-top-width: 1px !important;
+  }
+  .paper-notes-label {
+    font-size: 6.5pt !important;
+  }
+  .paper-notes-content-box {
+    min-height: 14px !important;
+    max-height: 26px !important;
+    font-size: 6.5pt !important;
+    padding: 1.5px 4px !important;
+    border: 1px solid #000 !important;
+    border-radius: 3px !important;
+    white-space: pre-wrap !important;
+    overflow: hidden !important;
+    line-height: 1.1 !important;
   }
 }
 
