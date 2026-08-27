@@ -40,3 +40,5 @@ next-env.d.ts
 *.tsbuildinfo
 line-login-auth-system.zip
 line-login-system-package/
+supabase/.temp/
+.antigravity/

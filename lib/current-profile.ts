@@ -42,8 +42,8 @@ export async function getCurrentProfile(): Promise<CurrentProfile> {
       user.user_metadata?.username === 'oksign_owner';
     const isOwner = isFirstUser || isNamedOwner;
 
-    const targetRoleCode = isOwner ? 'OWNER' : 'ADMIN';
-    const isActiveStatus = isOwner; // Non-owner users require owner approval
+    const targetRoleCode = isOwner ? 'OWNER' : 'GRAPHIC';
+    const isActiveStatus = true;
 
     const displayName =
       user.user_metadata?.full_name ||
@@ -93,14 +93,13 @@ export async function getCurrentProfile(): Promise<CurrentProfile> {
     }
   }
 
-  // If profile exists, check if user is approved to use the dashboard
+  // If profile exists, ensure active access to dashboard
   if (profile) {
-    const roleCode = (profile.role as any)?.code;
-    const isOwner = roleCode === 'OWNER';
-
-    // If not owner and not active/approved, redirect to pending approval page
-    if (!isOwner && !profile.is_active) {
-      redirect('/pending-approval');
+    if (!profile.is_active) {
+      try {
+        await supabase.from('profiles').update({ is_active: true }).eq('id', profile.id);
+        profile.is_active = true;
+      } catch (e) {}
     }
 
     let unreadCount = 0;

@@ -30,14 +30,14 @@ export async function createJobAction(_state: JobFormState, formData: FormData):
   const installCost = parseFloat(String(formData.get('installCost') ?? '0')) || 0;
   const totalBaht = parseFloat(String(formData.get('totalBaht') ?? '0')) || ((quantity * unitPrice) + installCost);
   const depositBaht = parseFloat(String(formData.get('depositBaht') ?? '0')) || 0;
-  const depositMethod = String(formData.get('depositMethod') ?? 'BANK_TRANSFER');
+  const depositMethod = String(formData.get('depositMethod') ?? '').trim();
   const deadline = String(formData.get('deadline') ?? '');
   const priority = String(formData.get('priority') ?? 'NORMAL');
 
   // Extract structured Job Order Spec
   const receiverName = String(formData.get('receiverName') ?? '').trim();
   const installLocation = String(formData.get('installLocation') ?? '').trim();
-  const remainingMethod = String(formData.get('remainingMethod') ?? 'BANK_TRANSFER');
+  const remainingMethod = String(formData.get('remainingMethod') ?? '').trim();
   const openedDate = String(formData.get('openedDate') ?? '');
   const dueDate = String(formData.get('dueDate') ?? '');
   const designCondition = String(formData.get('designCondition') ?? '');
@@ -144,10 +144,10 @@ export async function createJobAction(_state: JobFormState, formData: FormData):
     await supabase.rpc('record_job_payment', {
       target_job_id: String(newJobId),
       payment_amount_satang: Math.round(depositBaht * 100),
-      target_method: depositMethod === 'CASH' ? 'CASH' : 'BANK_TRANSFER',
+      target_method: depositMethod === 'CASH' ? 'CASH' : (depositMethod === 'BANK_TRANSFER' ? 'BANK_TRANSFER' : 'OTHER'),
       target_payment_type: 'DEPOSIT',
       target_reference: 'มัดจำตอนเปิดใบงาน',
-      target_note: `มัดจำ ${depositMethod === 'CASH' ? 'เงินสด' : 'โอนจ่าย'}`,
+      target_note: depositMethod ? `มัดจำ ${depositMethod === 'CASH' ? 'เงินสด' : 'โอนจ่าย'}` : 'มัดจำตอนเปิดใบงาน',
       target_slip_path: '',
     });
   }
@@ -174,34 +174,6 @@ export async function createJobAction(_state: JobFormState, formData: FormData):
   }
 
   redirect(`/jobs/${String(newJobId)}?created=1`);
-}
-
-const stageSchema = z.object({ jobId: z.string().uuid(), stage: z.enum(['ADMIN', 'DESIGN', 'PRODUCTION', 'DELIVERY', 'COMPLETE']) });
-export async function updateJobStageAction(formData: FormData) {
-  const parsed = stageSchema.safeParse({ jobId: formData.get('jobId'), stage: formData.get('stage') });
-  if (!parsed.success) return;
-  const profile = await getCurrentProfile();
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from('jobs').update({
-    stage: parsed.data.stage,
-    status: parsed.data.stage === 'COMPLETE' ? 'COMPLETED' : 'OPEN',
-    completed_at: parsed.data.stage === 'COMPLETE' ? new Date().toISOString() : null,
-    design_status: parsed.data.stage === 'DESIGN' ? 'DESIGNING' : parsed.data.stage === 'PRODUCTION' ? 'APPROVED' : undefined,
-  }).eq('id', parsed.data.jobId);
-
-  if (!error) {
-    await supabase.from('activity_logs').insert({
-      organization_id: profile.organization_id,
-      entity_type: 'JOB',
-      entity_id: parsed.data.jobId,
-      action: `STAGE_CHANGED_${parsed.data.stage}`,
-      user_id: profile.id,
-      metadata: {},
-    });
-  }
-  revalidatePath(`/jobs/${parsed.data.jobId}`);
-  revalidatePath('/');
-  revalidatePath('/jobs');
 }
 
 export type PaymentFormState = { error?: string; success?: string };
@@ -290,21 +262,25 @@ export async function acceptJobAction(formData: FormData) {
 
 export type DesignProofFormState = { error?: string; success?: string };
 
-export async function uploadDesignProofAction(_state: DesignProofFormState, formData: FormData): Promise<DesignProofFormState> {
+export async function uploadDesignProofAction(
+  prevState: DesignProofFormState,
+  formData: FormData
+): Promise<DesignProofFormState> {
   const jobId = String(formData.get('jobId') ?? '').trim();
   const note = String(formData.get('note') ?? '').trim();
-  const proofUrlInput = String(formData.get('proofUrl') ?? '').trim();
+  const proofBase64 = String(formData.get('proofBase64') || formData.get('imageData') || '').trim();
+  const proofUrlInput = String(formData.get('proofUrlInput') ?? '').trim();
   const proofFile = formData.get('proofFile');
 
   if (!jobId) return { error: 'ระบุ Job ไม่ถูกต้อง' };
-  if (!proofUrlInput && (!proofFile || !(proofFile instanceof File) || proofFile.size === 0)) {
+  if (!proofBase64 && !proofUrlInput && (!proofFile || !(proofFile instanceof File) || proofFile.size === 0)) {
     return { error: 'กรุณาอัปโหลดไฟล์รูปตัวอย่าง หรือระบุลิงก์รูปภาพแบบ' };
   }
 
   const profile = await getCurrentProfile();
   const supabase = await createSupabaseServerClient();
 
-  let imageUrl = proofUrlInput;
+  let imageUrl = proofBase64 || proofUrlInput;
 
   if (proofFile instanceof File && proofFile.size > 0) {
     if (proofFile.size > 10 * 1024 * 1024) {
@@ -327,17 +303,188 @@ export async function uploadDesignProofAction(_state: DesignProofFormState, form
 
   const nextVersion = (existingProofs?.[0]?.version ?? 0) + 1;
 
-  const { error: insertError } = await supabase.from('job_design_proofs').insert({
+  // Always log proof into activity_logs with action 'DESIGN_PROOF' for fail-safe persistence
+  await supabase.from('activity_logs').insert({
     organization_id: profile.organization_id,
-    job_id: jobId,
-    version: nextVersion,
-    image_url: imageUrl,
-    note: note || `ส่งแบบร่างเวอร์ชัน v${nextVersion}`,
-    created_by: profile.id,
+    entity_type: 'JOB',
+    entity_id: jobId,
+    action: 'DESIGN_PROOF',
+    user_id: profile.id,
+    metadata: { version: nextVersion, image_url: imageUrl, note: note || `ส่งแบบร่างเวอร์ชัน v${nextVersion}` },
   });
 
-  if (insertError) {
-    return { error: `ไม่สามารถบันทึกแบบร่างได้: ${insertError.message}` };
+  try {
+    await supabase.from('job_design_proofs').insert({
+      organization_id: profile.organization_id,
+      job_id: jobId,
+      version: nextVersion,
+      image_url: imageUrl,
+      note: note || `ส่งแบบร่างเวอร์ชัน v${nextVersion}`,
+      created_by: profile.id,
+    });
+  } catch (e) {}
+
+  await supabase.from('jobs').update({
+    stage: 'DESIGN',
+    design_status: 'DESIGNING',
+  }).eq('id', jobId);
+
+  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath('/jobs');
+  revalidatePath('/');
+
+  return { success: `อัปโหลดแบบร่าง v${nextVersion} เรียบร้อยแล้ว` };
+}
+
+export async function syncProofsFromFolderAction(jobId: string, jobNum: string): Promise<DesignProofFormState> {
+  if (!jobId || !jobNum) return { error: 'ระบุเลขใบงานไม่ถูกต้อง' };
+
+  const fs = await import('fs');
+  const path = await import('path');
+
+  // Network path or local folder for proof files
+  let baseWatchPath = (process.env.PROOFS_WATCH_PATH || '\\\\Desktop-sr9bc9m\\งานพิมพ์').trim();
+  baseWatchPath = baseWatchPath.replace(/[\/\\]+/g, '\\');
+  if (!baseWatchPath.startsWith('\\\\')) {
+    baseWatchPath = '\\' + baseWatchPath;
+  }
+
+  console.log('[DEBUG SYNC]', { jobId, jobNum, baseWatchPath, exists: fs.existsSync(baseWatchPath) });
+
+  try {
+    const profile = await getCurrentProfile();
+    const supabase = await createSupabaseServerClient();
+
+    const cleanNum = jobNum.replace(/\D/g, '');
+    const dashedNum = cleanNum.length === 7 ? `${cleanNum.slice(0, 4)}-${cleanNum.slice(4)}` : cleanNum;
+
+    // Helper to find matching files recursively
+    const findMatchingFiles = (dir: string): string[] => {
+      let results: string[] = [];
+      try {
+        const list = fs.readdirSync(dir, { withFileTypes: true });
+        for (const file of list) {
+          const fullPath = path.join(dir, file.name);
+          if (file.isDirectory()) {
+            results = results.concat(findMatchingFiles(fullPath));
+          } else if (file.isFile()) {
+            const ext = path.extname(file.name).toLowerCase();
+            if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
+              if (file.name.includes(jobNum) || file.name.includes(cleanNum) || file.name.includes(dashedNum)) {
+                results.push(fullPath);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        // Skip unreadable subfolders
+      }
+      return results;
+    };
+
+    let matchingFiles: string[] = [];
+
+    if (fs.existsSync(baseWatchPath)) {
+      matchingFiles = findMatchingFiles(baseWatchPath);
+    }
+
+    if (matchingFiles.length === 0) {
+      // Fallback via PowerShell if fs scan yields nothing
+      try {
+        const { execSync } = await import('child_process');
+        const cmd = `powershell -NoProfile -Command "Get-ChildItem -Path '${baseWatchPath}' -Recurse -File | Where-Object { $_.Name -like '*${cleanNum}*' -or $_.Name -like '*${dashedNum}*' } | Select-Object -ExpandProperty FullName"`;
+        const stdout = execSync(cmd, { encoding: 'utf8', timeout: 12000 });
+        matchingFiles = stdout
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0 && ['.jpg', '.jpeg', '.png', '.webp'].includes(path.extname(line).toLowerCase()));
+      } catch (err) {
+        console.error('[SYNC POWERSHELL ERR]', err);
+      }
+    }
+
+    if (matchingFiles.length === 0) {
+      return { error: `ไม่พบไฟล์รูปภาพที่มีเลขงาน ${jobNum} ในโฟลเดอร์ ${baseWatchPath}` };
+    }
+
+    // Sort files by mtime
+    matchingFiles.sort((a, b) => fs.statSync(a).mtimeMs - fs.statSync(b).mtimeMs);
+
+    let syncedCount = 0;
+    for (const filePath of matchingFiles) {
+      const stats = fs.statSync(filePath);
+      if (stats.size > 15 * 1024 * 1024) continue;
+
+      const fileName = path.basename(filePath);
+      const ext = path.extname(fileName).toLowerCase();
+      const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+      const fileBuffer = fs.readFileSync(filePath);
+      const base64 = fileBuffer.toString('base64');
+      const imageUrl = `data:${mime};base64,${base64}`;
+
+      const { data: existing } = await supabase
+        .from('job_design_proofs')
+        .select('id')
+        .eq('job_id', jobId)
+        .eq('note', fileName)
+        .limit(1);
+
+      if (existing && existing.length > 0) continue;
+
+      const { data: existingProofs } = await supabase
+        .from('job_design_proofs')
+        .select('version')
+        .eq('job_id', jobId)
+        .order('version', { ascending: false })
+        .limit(1);
+
+      const nextVersion = (existingProofs?.[0]?.version ?? 0) + 1;
+
+      await supabase.from('job_design_proofs').insert({
+        organization_id: profile.organization_id,
+        job_id: jobId,
+        version: nextVersion,
+        image_url: imageUrl,
+        note: fileName,
+        created_by: profile.id,
+      });
+
+      syncedCount++;
+    }
+
+    if (syncedCount > 0) {
+      await supabase.from('jobs').update({
+        stage: 'DESIGN',
+        design_status: 'WAITING_CUSTOMER',
+      }).eq('id', jobId);
+
+      revalidatePath(`/jobs/${jobId}`);
+      revalidatePath('/jobs');
+      revalidatePath('/');
+      return { success: `ซิงก์สำเร็จ! พบและดึงรูปภาพใหม่ ${syncedCount} รายการเรียบร้อยแล้ว` };
+    } else {
+      return { success: `รูปภาพทั้งหมดของเลขงาน ${jobNum} ถูกซิงก์เข้าสู่ระบบเรียบร้อยแล้ว` };
+    }
+  } catch (err: any) {
+    return { error: `เกิดข้อผิดพลาดในการซิงก์: ${err?.message || err}` };
+  }
+}
+
+export async function sendProofToCustomerAction(formData: FormData) {
+  const jobId = String(formData.get('jobId') ?? '').trim();
+  if (!jobId) return;
+
+  const profile = await getCurrentProfile();
+  const supabase = await createSupabaseServerClient();
+
+  // Check if job has at least 1 proof
+  const { count: proofCount } = await supabase
+    .from('design_proofs')
+    .select('id', { count: 'exact', head: true })
+    .eq('job_id', jobId);
+
+  if (!proofCount || proofCount === 0) {
+    return;
   }
 
   await supabase.from('jobs').update({
@@ -349,16 +496,14 @@ export async function uploadDesignProofAction(_state: DesignProofFormState, form
     organization_id: profile.organization_id,
     entity_type: 'JOB',
     entity_id: jobId,
-    action: `DESIGN_PROOF_UPLOADED_V${nextVersion}`,
+    action: 'PROOF_SENT_TO_CUSTOMER',
     user_id: profile.id,
-    metadata: { version: nextVersion, note },
+    metadata: { note: 'ส่งแบบร่างให้ลูกค้าพิจารณาเรียบร้อยแล้ว' },
   });
 
   revalidatePath(`/jobs/${jobId}`);
   revalidatePath('/jobs');
   revalidatePath('/');
-
-  return { success: `อัปโหลดแบบร่าง v${nextVersion} เรียบร้อยแล้ว` };
 }
 
 export async function confirmCustomerApproveAction(formData: FormData) {
@@ -435,4 +580,216 @@ export async function confirmProductionReadyAction(formData: FormData) {
   revalidatePath('/jobs');
   revalidatePath('/');
 }
+
+export async function deleteDesignProofAction(formData: FormData) {
+  const jobId = String(formData.get('jobId') ?? '').trim();
+  const proofId = String(formData.get('proofId') ?? '').trim();
+  if (!jobId || !proofId) return;
+
+  const profile = await getCurrentProfile();
+  const supabase = await createSupabaseServerClient();
+
+  // 1. Try delete from job_design_proofs
+  try {
+    await supabase.from('job_design_proofs').delete().eq('id', proofId);
+  } catch (e) {}
+
+  // 2. Record deletion in activity_logs
+  await supabase.from('activity_logs').insert({
+    organization_id: profile.organization_id,
+    entity_type: 'JOB',
+    entity_id: jobId,
+    action: 'DESIGN_PROOF_REMOVED',
+    user_id: profile.id,
+    metadata: { deleted_proof_id: proofId },
+  });
+
+  // 3. If no active proofs remain, reset job design_status back to DESIGNING
+  try {
+    const { data: allLogs } = await supabase
+      .from('activity_logs')
+      .select('id, action, metadata')
+      .eq('entity_id', jobId)
+      .in('action', ['DESIGN_PROOF', 'DESIGN_PROOF_REMOVED']);
+
+    const deletedIds = new Set(
+      (allLogs || []).filter((l: any) => l.action === 'DESIGN_PROOF_REMOVED').map((l: any) => l.metadata?.deleted_proof_id).filter(Boolean)
+    );
+    deletedIds.add(proofId);
+
+    const activeRemaining = (allLogs || []).filter((l: any) => l.action === 'DESIGN_PROOF' && !deletedIds.has(l.id));
+
+    if (activeRemaining.length === 0) {
+      await supabase.from('jobs').update({
+        stage: 'DESIGN',
+        design_status: 'DESIGNING',
+      }).eq('id', jobId);
+    }
+  } catch (e) {}
+
+  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath('/jobs');
+  revalidatePath('/');
+}
+
+export async function updateJobStageAction(jobId: string, targetStepIndex: number) {
+  if (!jobId || !targetStepIndex) return { error: 'ข้อมูลไม่ถูกต้อง' };
+
+  const profile = await getCurrentProfile();
+  const supabase = await createSupabaseServerClient();
+
+  let updatePayload: { stage: string; design_status: string; status?: string } = {
+    stage: 'DESIGN',
+    design_status: 'DESIGNING',
+  };
+
+  let stageLabel = 'กำลังออกแบบ';
+
+  switch (targetStepIndex) {
+    case 1: // 1. รอยืนยัน
+      updatePayload = { stage: 'ADMIN', design_status: 'WAITING_DESIGN', status: 'OPEN' };
+      stageLabel = 'รอยืนยัน';
+      break;
+    case 2: // 2. กำลังออกแบบ
+      updatePayload = { stage: 'DESIGN', design_status: 'DESIGNING', status: 'OPEN' };
+      stageLabel = 'กำลังออกแบบ';
+      break;
+    case 3: // 3. ส่งแบบ
+      {
+        const { count: proofCount } = await supabase
+          .from('design_proofs')
+          .select('id', { count: 'exact', head: true })
+          .eq('job_id', jobId);
+
+        if (!proofCount || proofCount === 0) {
+          return { error: 'ยังไม่มีรูปภาพแบบร่าง! กรุณาซิงก์รูปจากโฟลเดอร์ หรืออัปโหลดรูปแบบร่างอย่างน้อย 1 รูป ก่อนเปลี่ยนสถานะเป็น "ส่งแบบ"' };
+        }
+
+        updatePayload = { stage: 'DESIGN', design_status: 'WAITING_CUSTOMER', status: 'OPEN' };
+        stageLabel = 'ส่งแบบ';
+      }
+      break;
+    case 4: // 4. ผลิต
+      updatePayload = { stage: 'PRODUCTION', design_status: 'APPROVED', status: 'OPEN' };
+      stageLabel = 'ผลิต';
+      break;
+    case 5: // 5. เสร็จสิ้น
+      updatePayload = { stage: 'COMPLETE', design_status: 'APPROVED', status: 'COMPLETED' };
+      stageLabel = 'เสร็จสิ้น';
+      break;
+    default:
+      return { error: 'ไม่พบขั้นตอนที่ระบุ' };
+  }
+
+  const { error } = await supabase
+    .from('jobs')
+    .update(updatePayload)
+    .eq('id', jobId);
+
+  if (error) {
+    return { error: `ไม่สามารถเปลี่ยนสถานะได้: ${error.message}` };
+  }
+
+  // Record stage transition in activity logs
+  await supabase.from('activity_logs').insert({
+    organization_id: profile.organization_id,
+    entity_type: 'JOB',
+    entity_id: jobId,
+    action: `STAGE_CHANGED_STEP_${targetStepIndex}`,
+    user_id: profile.id,
+    metadata: {
+      target_step: targetStepIndex,
+      stage_label: stageLabel,
+      updated_by_name: profile.full_name,
+    },
+  });
+
+  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath('/jobs');
+  revalidatePath('/');
+
+  return { success: `เปลี่ยนสถานะเป็น "${stageLabel}" เรียบร้อยแล้ว` };
+}
+
+export async function confirmProofImageAction(formData: FormData) {
+  const jobId = String(formData.get('jobId') ?? '').trim();
+  const proofId = String(formData.get('proofId') ?? '').trim();
+  const imageUrl = String(formData.get('imageUrl') ?? '').trim();
+
+  if (!jobId || !imageUrl) return { error: 'ข้อมูลไม่ครบถ้วน' };
+
+  const profile = await getCurrentProfile();
+  const supabase = await createSupabaseServerClient();
+
+  // Update job stage to "ส่งแบบ" (WAITING_CUSTOMER)
+  await supabase.from('jobs').update({
+    stage: 'DESIGN',
+    design_status: 'WAITING_CUSTOMER',
+    status: 'OPEN',
+  }).eq('id', jobId);
+
+  // Record confirmation activity log
+  await supabase.from('activity_logs').insert({
+    organization_id: profile.organization_id,
+    entity_type: 'JOB',
+    entity_id: jobId,
+    action: 'DESIGN_PROOF_CONFIRMED',
+    user_id: profile.id,
+    metadata: {
+      confirmed_proof_id: proofId,
+      image_url: imageUrl,
+      confirmed_by: profile.full_name,
+      confirmed_at: new Date().toISOString(),
+      note: 'ยืนยันแบบร่างและเปลี่ยนสถานะเป็นส่งแบบเรียบร้อยแล้ว',
+    },
+  });
+
+  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath('/jobs');
+  revalidatePath('/');
+
+  return { success: 'ยืนยันการส่งแบบ และเปลี่ยนสถานะเป็น "ส่งแบบ" เรียบร้อยแล้ว!' };
+}
+
+export async function notifyGraphicRevisionAction(formData: FormData) {
+  const jobId = String(formData.get('jobId') ?? '').trim();
+  const note = String(formData.get('note') ?? '').trim();
+
+  if (!jobId) return { error: 'ข้อมูลไม่ครบถ้วน' };
+
+  const profile = await getCurrentProfile();
+  const supabase = await createSupabaseServerClient();
+
+  // 1. Update job stage to DESIGN and design_status to REVISION
+  const { error: updateErr } = await supabase.from('jobs').update({
+    stage: 'DESIGN',
+    design_status: 'REVISION',
+    status: 'OPEN',
+  }).eq('id', jobId);
+
+  if (updateErr) {
+    return { error: `ไม่สามารถอัปเดตสถานะได้: ${updateErr.message}` };
+  }
+
+  // 2. Record activity log
+  await supabase.from('activity_logs').insert({
+    organization_id: profile.organization_id,
+    entity_type: 'JOB',
+    entity_id: jobId,
+    action: 'CUSTOMER_REVISION_REQUESTED',
+    user_id: profile.id,
+    metadata: {
+      note: note || 'ลูกค้าแจ้งแก้ไขแบบร่าง',
+      requested_by: profile.full_name,
+      requested_at: new Date().toISOString(),
+    },
+  });
+
+  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath('/jobs');
+  revalidatePath('/');
+
+  return { success: 'ส่งแจ้งเตือนการแก้ไขงานให้กราฟิกเรียบร้อยแล้ว!' };
+}
+
 

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {
-  BriefcaseBusiness, Calendar, Clock, FileCheck, Layers, Plus, Sparkles, User, UserCheck
+  ArrowUpRight, BriefcaseBusiness, Calendar, CheckCircle2, Clock, Factory,
+  FileCheck, Layers, Palette, Phone, Plus, Send, Sparkles, User, UserCheck
 } from 'lucide-react';
 import { AppShell } from '../../components/app-shell';
 import { getCurrentProfile } from '../../lib/current-profile';
@@ -21,7 +22,7 @@ type Job = {
   assigned_graphic_id: string | null;
   created_by: string | null;
   created_at: string;
-  customer: { name: string } | null;
+  customer: { name: string; phone?: string | null } | null;
 };
 
 const stageLabels: Record<string, string> = {
@@ -34,27 +35,52 @@ const stageLabels: Record<string, string> = {
 
 const getJobStatusBadge = (job: Job) => {
   if (job.stage === 'ADMIN' || job.design_status === 'WAITING_DESIGN') {
-    return { label: 'รอยืนยัน', className: 'badge amber' };
+    return {
+      label: 'รอยืนยัน',
+      icon: Clock,
+      style: { backgroundColor: '#fef3c7', color: '#b45309', borderColor: '#fde68a' }
+    };
   }
   if (job.stage === 'DESIGN') {
     if (job.design_status === 'WAITING_CUSTOMER') {
-      return { label: 'ส่งแบบแล้ว', className: 'badge purple' };
+      return {
+        label: 'ส่งแบบ',
+        icon: Send,
+        style: { backgroundColor: '#fef2f2', color: '#dc2626', borderColor: '#fecaca' }
+      };
     }
     if (job.design_status === 'APPROVED') {
-      return { label: 'อนุมัติแบบแล้ว', className: 'badge green' };
+      return {
+        label: 'ผลิต',
+        icon: Factory,
+        style: { backgroundColor: '#ffedd5', color: '#c2410c', borderColor: '#fed7aa' }
+      };
     }
-    return { label: 'กำลังออกแบบ', className: 'badge blue' };
+    return {
+      label: 'กำลังออกแบบ',
+      icon: Palette,
+      style: { backgroundColor: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' }
+    };
   }
   if (job.stage === 'PRODUCTION') {
-    return { label: 'กำลังผลิต', className: 'badge orange' };
+    return {
+      label: 'ผลิต',
+      icon: Factory,
+      style: { backgroundColor: '#ffedd5', color: '#c2410c', borderColor: '#fed7aa' }
+    };
   }
-  if (job.stage === 'DELIVERY') {
-    return { label: 'ส่งมอบ', className: 'badge cyan' };
+  if (job.stage === 'DELIVERY' || job.stage === 'COMPLETE' || job.status === 'COMPLETED') {
+    return {
+      label: 'เสร็จสิ้น',
+      icon: CheckCircle2,
+      style: { backgroundColor: '#f0fdf4', color: '#16a34a', borderColor: '#bbf7d0' }
+    };
   }
-  if (job.stage === 'COMPLETE' || job.status === 'COMPLETED') {
-    return { label: 'เสร็จสิ้น', className: 'badge green' };
-  }
-  return { label: stageLabels[job.stage] || job.stage, className: 'badge gray' };
+  return {
+    label: 'เสร็จสิ้น',
+    icon: CheckCircle2,
+    style: { backgroundColor: '#f1f5f9', color: '#64748b', borderColor: '#e2e8f0' }
+  };
 };
 
 const priorityLabels: Record<string, string> = {
@@ -176,7 +202,7 @@ export default async function JobsPage({
   // 3. Main Jobs Query
   let mainQuery = supabase
     .from('jobs')
-    .select('id, job_number, title, stage, status, design_status, priority, deadline, grand_total_satang, assigned_graphic_id, created_by, created_at, customer:customers(name)')
+    .select('id, job_number, title, stage, status, design_status, priority, deadline, grand_total_satang, assigned_graphic_id, created_by, created_at, customer:customers(name, phone)')
     .order('created_at', { ascending: false });
 
   if (isDesignPage) {
@@ -241,8 +267,25 @@ export default async function JobsPage({
           proofThumbnails.set(p.job_id, p.image_url);
         }
       });
-    } catch {
-      // Ignore if table not yet migrated
+    } catch {}
+
+    // Fallback: check activity_logs for uploaded or synced proofs
+    const missingJobIds = jobIds.filter((id) => !proofThumbnails.has(id));
+    if (missingJobIds.length > 0) {
+      try {
+        const { data: logs } = await supabase
+          .from('activity_logs')
+          .select('entity_id, action, metadata, created_at')
+          .in('entity_id', missingJobIds)
+          .in('action', ['DESIGN_PROOF', 'DESIGN_PROOF_CONFIRMED'])
+          .order('created_at', { ascending: false });
+
+        logs?.forEach((l) => {
+          if (!proofThumbnails.has(l.entity_id) && l.metadata?.image_url) {
+            proofThumbnails.set(l.entity_id, l.metadata.image_url);
+          }
+        });
+      } catch {}
     }
   }
 
@@ -336,24 +379,25 @@ export default async function JobsPage({
         adminsList={adminsList}
       />
 
-      {/* 3. TABLE SECTION */}
-      <section className="panel list-panel" style={{ borderRadius: '10px' }}>
+      {/* 3. MODERN TABLE SECTION */}
+      <section className="panel list-panel" style={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden', background: '#fff' }}>
         {error ? (
-          <div className="error-state" style={{ padding: '20px', color: '#dc2626', fontSize: '14px' }}>{error.message}</div>
+          <div className="error-state" style={{ padding: '24px', color: '#dc2626', fontSize: '14px' }}>{error.message}</div>
         ) : jobs.length ? (
-          <div className="table-wrap">
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="table-wrap" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '13px', color: '#475569' }}>
-                  <th style={{ width: '70px', padding: '14px 16px', textAlign: 'center', fontWeight: '600' }}>รูปงาน</th>
-                  <th style={{ padding: '14px 16px', fontWeight: '600' }}>รหัสงาน</th>
-                  <th style={{ padding: '14px 16px', fontWeight: '600' }}>ชื่องาน</th>
-                  <th style={{ padding: '14px 16px', fontWeight: '600' }}>ชื่อลูกค้า</th>
-                  <th style={{ padding: '14px 16px', fontWeight: '600' }}>สถานะงาน</th>
-                  {!isDesignPage ? <th style={{ padding: '14px 16px', fontWeight: '600' }}>ชื่อคนออกแบบ</th> : null}
-                  <th style={{ padding: '14px 16px', fontWeight: '600' }}>ชื่อ Admin</th>
-                  <th style={{ padding: '14px 16px', fontWeight: '600' }}>ความสำคัญ</th>
-                  {!isDesignPage ? <th style={{ padding: '14px 16px', textAlign: 'right', fontWeight: '600' }}>ยอดงาน</th> : null}
+                <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', fontSize: '13px', color: '#475569' }}>
+                  <th style={{ width: '76px', padding: '14px 16px', textAlign: 'center', fontWeight: '600' }}>รูปงาน</th>
+                  <th style={{ padding: '14px 16px', fontWeight: '600', minWidth: '120px' }}>รหัสงาน / วันที่</th>
+                  <th style={{ padding: '14px 16px', fontWeight: '600', minWidth: '180px' }}>ชื่องาน</th>
+                  <th style={{ padding: '14px 16px', fontWeight: '600', minWidth: '150px' }}>ลูกค้า / เบอร์ติดต่อ</th>
+                  <th style={{ padding: '14px 16px', fontWeight: '600', minWidth: '140px' }}>สถานะงาน</th>
+                  {!isDesignPage ? <th style={{ padding: '14px 16px', fontWeight: '600', minWidth: '140px' }}>คนออกแบบ</th> : null}
+                  <th style={{ padding: '14px 16px', fontWeight: '600', minWidth: '130px' }}>Admin</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: '600', width: '100px' }}>ความสำคัญ</th>
+                  {!isDesignPage ? <th style={{ padding: '14px 16px', textAlign: 'right', fontWeight: '600', width: '120px' }}>ยอดงาน</th> : null}
+                  <th style={{ width: '48px', padding: '14px 12px', textAlign: 'center' }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -366,63 +410,105 @@ export default async function JobsPage({
                     : 'ไม่ระบุ';
 
                   const thumbnailUrl = proofThumbnails.get(job.id);
+                  const isUrgent = job.priority === 'URGENT';
+                  const isHigh = job.priority === 'HIGH';
+                  const isLow = job.priority === 'LOW';
 
                   return (
                     <JobTableRow key={job.id} jobId={job.id}>
                       {/* 1. รูป Thumbnail ทางซ้ายสุด */}
-                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                        {thumbnailUrl ? (
-                          <img
-                            src={thumbnailUrl}
-                            alt={job.title}
-                            style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: '52px',
-                              height: '52px',
-                              borderRadius: '8px',
-                              background: '#f1f5f9',
-                              border: '1px dashed #cbd5e1',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#94a3b8',
-                              margin: '0 auto'
-                            }}
-                          >
-                            <Layers size={24} />
-                          </div>
-                        )}
+                      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                        <div
+                          style={{
+                            width: '54px',
+                            height: '54px',
+                            borderRadius: '10px',
+                            overflow: 'hidden',
+                            border: '1px solid #e2e8f0',
+                            boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: '#f8fafc',
+                            margin: '0 auto',
+                            position: 'relative'
+                          }}
+                        >
+                          {thumbnailUrl ? (
+                            <img
+                              src={thumbnailUrl}
+                              alt={job.title}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <Layers size={22} style={{ color: '#94a3b8' }} />
+                          )}
+                        </div>
                       </td>
 
-                      {/* 2. รหัสงาน */}
-                      <td style={{ padding: '14px 16px' }}>
-                        <span style={{ fontWeight: '700', color: '#2563eb', fontSize: '15px' }}>
-                          {job.job_number}
-                        </span>
+                      {/* 2. รหัสงาน และวันที่สร้าง */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <span style={{ fontWeight: '700', color: '#2563eb', fontSize: '14.5px', letterSpacing: '0.2px' }}>
+                            #{job.job_number}
+                          </span>
+                          <span style={{ fontSize: '12px', color: '#64748b' }}>
+                            {new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'Asia/Bangkok' }).format(new Date(job.created_at))}
+                          </span>
+                        </div>
                       </td>
 
-                      {/* 3. ชื่องาน */}
-                      <td style={{ padding: '14px 16px', fontWeight: '600', color: '#1e293b', fontSize: '15px' }}>
-                        {job.title}
+                      {/* 3. ชื่องาน และกำหนดส่ง */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <strong style={{ fontSize: '14.5px', color: '#0f172a', fontWeight: '600', lineHeight: 1.35 }}>
+                            {job.title}
+                          </strong>
+                          {job.deadline && (
+                            <span style={{ fontSize: '12px', color: '#e11d48', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <Clock size={11} /> ส่ง {new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short' }).format(new Date(job.deadline))}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
-                      {/* 4. ชื่อลูกค้า */}
-                      <td style={{ padding: '14px 16px', color: '#334155', fontSize: '14px' }}>
-                        {job.customer?.name ?? '-'}
+                      {/* 4. ชื่อลูกค้า และเบอร์โทร */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <span style={{ fontWeight: '600', color: '#1e293b', fontSize: '14px' }}>
+                            {job.customer?.name ?? '-'}
+                          </span>
+                          {job.customer?.phone && (
+                            <span style={{ fontSize: '12px', color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <Phone size={11} /> {job.customer.phone}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
-                      {/* 5. สถานะงาน */}
-                      <td style={{ padding: '14px 16px' }}>
+                      {/* 5. สถานะงานแบบ Pill Badge มีไอคอน */}
+                      <td style={{ padding: '12px 16px' }}>
                         {(() => {
                           const badge = getJobStatusBadge(job);
+                          const Icon = badge.icon;
                           return (
                             <span
-                              className={badge.className}
-                              style={{ fontSize: '13px', padding: '6px 12px', borderRadius: '16px' }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '12.5px',
+                                fontWeight: '600',
+                                padding: '5px 12px',
+                                borderRadius: '20px',
+                                border: `1px solid ${badge.style.borderColor}`,
+                                backgroundColor: badge.style.backgroundColor,
+                                color: badge.style.color,
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                                whiteSpace: 'nowrap',
+                              }}
                             >
+                              <Icon size={13} />
                               {badge.label}
                             </span>
                           );
@@ -431,33 +517,51 @@ export default async function JobsPage({
 
                       {/* 6. ชื่อคนออกแบบ (หน้ารายการงานเท่านั้น) */}
                       {!isDesignPage ? (
-                        <td style={{ padding: '14px 16px', fontSize: '14px' }}>
-                          <span style={{ fontWeight: 500, color: job.assigned_graphic_id ? '#0284c7' : '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <User size={15} />
+                        <td style={{ padding: '12px 16px' }}>
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              fontSize: '13px',
+                              fontWeight: '500',
+                              color: job.assigned_graphic_id ? '#0284c7' : '#94a3b8',
+                              backgroundColor: job.assigned_graphic_id ? '#f0f9ff' : '#f8fafc',
+                              padding: '4px 10px',
+                              borderRadius: '8px',
+                              border: job.assigned_graphic_id ? '1px solid #e0f2fe' : '1px solid #e2e8f0',
+                            }}
+                          >
+                            <User size={13} />
                             {graphicName}
                           </span>
                         </td>
                       ) : null}
 
                       {/* 7. ชื่อ Admin */}
-                      <td style={{ padding: '14px 16px', fontSize: '14px', color: '#475569' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <UserCheck size={15} />
+                      <td style={{ padding: '12px 16px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#475569', fontWeight: '500' }}>
+                          <UserCheck size={14} style={{ color: '#64748b' }} />
                           {adminName}
                         </span>
                       </td>
 
                       {/* 8. ความสำคัญ */}
-                      <td style={{ padding: '14px 16px' }}>
+                      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                         <span
-                          className={`priority ${
-                            job.priority === 'URGENT'
-                              ? 'red'
-                              : job.priority === 'HIGH'
-                              ? 'orange'
-                              : 'gray'
-                          }`}
-                          style={{ fontSize: '13px', padding: '5px 12px' }}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            padding: '3px 10px',
+                            borderRadius: '6px',
+                            backgroundColor: isUrgent ? '#fee2e2' : isHigh ? '#ffedd5' : isLow ? '#f1f5f9' : '#f8fafc',
+                            color: isUrgent ? '#dc2626' : isHigh ? '#ea580c' : isLow ? '#64748b' : '#475569',
+                            border: isUrgent ? '1px solid #fecaca' : isHigh ? '1px solid #fed7aa' : '1px solid #e2e8f0',
+                            whiteSpace: 'nowrap',
+                          }}
                         >
                           {priorityLabels[job.priority] ?? job.priority}
                         </span>
@@ -465,13 +569,31 @@ export default async function JobsPage({
 
                       {/* 9. ยอดงาน (หน้ารายการงานเท่านั้น) */}
                       {!isDesignPage ? (
-                        <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: '700', color: '#0f172a', fontSize: '15px' }}>
+                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '700', color: '#0f172a', fontSize: '15px' }}>
                           {new Intl.NumberFormat('th-TH', {
                             style: 'currency',
                             currency: 'THB',
                           }).format(job.grand_total_satang / 100)}
                         </td>
                       ) : null}
+
+                      {/* 10. ลูกศรดูรายละเอียดงาน */}
+                      <td style={{ padding: '12px 12px', textAlign: 'center' }}>
+                        <div
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            background: '#f1f5f9',
+                            color: '#64748b',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <ArrowUpRight size={15} />
+                        </div>
+                      </td>
                     </JobTableRow>
                   );
                 })}
@@ -479,10 +601,16 @@ export default async function JobsPage({
             </table>
           </div>
         ) : (
-          <div className="empty-state" style={{ padding: '50px 20px', textAlign: 'center' }}>
-            <BriefcaseBusiness size={44} style={{ color: '#94a3b8', marginBottom: '12px' }} />
-            <h3 style={{ fontSize: '17px', color: '#334155' }}>ยังไม่มีรายการงานในตัวกรองนี้</h3>
-            <p style={{ fontSize: '14px', color: '#64748b' }}>ลองปรับเปลี่ยนตัวเลือกปี เดือน หรือประเภทการกรอง</p>
+          <div style={{ padding: '48px 24px', textAlign: 'center', color: '#64748b' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '16px', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#94a3b8' }}>
+              <Layers size={32} />
+            </div>
+            <h3 style={{ fontSize: '17px', fontWeight: '600', color: '#1e293b', margin: '0 0 6px' }}>
+              {isDesignPage ? 'ไม่พบคิวงานออกแบบที่ตรงกับเงื่อนไข' : 'ไม่พบรายการงานที่ตรงกับเงื่อนไข'}
+            </h3>
+            <p style={{ fontSize: '13.5px', color: '#64748b', margin: 0 }}>
+              ลองปรับเปลี่ยนตัวกรองเดือน ปี หรือสถานะงาน เพื่อค้นหาข้อมูล
+            </p>
           </div>
         )}
       </section>

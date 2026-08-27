@@ -816,6 +816,8 @@ export function JobForm({
                 <label className={`paper-check-item ${boardTypes.some(b => b.includes('ฟิวเจอร์บอร์ด')) ? 'checked' : ''}`}>
                   <input
                     type="checkbox"
+                    name="boardTypes"
+                    value="ฟิวเจอร์บอร์ด"
                     checked={boardTypes.some(b => b.includes('ฟิวเจอร์บอร์ด'))}
                     onChange={(e) => {
                       if (e.target.checked) {
@@ -850,6 +852,9 @@ export function JobForm({
                   </div>
                 )}
                 <div className="thickness-matrix-box">
+                  {boardTypes.filter((b) => b.includes('มิล')).map((val) => (
+                    <input type="hidden" name="boardTypes" value={val} key={val} />
+                  ))}
                   <div className="thickness-matrix">
                     {[
                       ['1 มิล', '10 มิล'],
@@ -946,6 +951,9 @@ export function JobForm({
                   </label>
                 ))}
                 <div className="paper-tube-nested">
+                  {finishing.filter((f) => f.startsWith('สอดท่อ')).map((val) => (
+                    <input type="hidden" name="finishing" value={val} key={val} />
+                  ))}
                   <label className={`paper-check-item ${finishing.some((f) => f.startsWith('สอดท่อ')) ? 'checked' : ''}`}>
                     <input
                       type="checkbox"
@@ -1112,18 +1120,25 @@ export function JobForm({
           <div className="dispatch-form-grid">
             <div className="dispatch-item">
               <span className="dispatch-label">ความสำคัญ:</span>
-              <select
-                name="priority"
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-                className="wb-select dispatch-select"
-              >
-                <option value="NORMAL">ปกติ</option>
-                <option value="URGENT">ด่วน</option>
-                <option value="VERY_URGENT">ด่วนพิเศษ</option>
-                <option value="NOON">รับเที่ยง</option>
-                <option value="EVENING">รับเย็น</option>
-              </select>
+              <input type="hidden" name="priority" value={priority} />
+              <div className="priority-toggle-group">
+                <button
+                  type="button"
+                  className={`priority-btn normal ${priority === 'NORMAL' ? 'active' : ''}`}
+                  onClick={() => setPriority('NORMAL')}
+                >
+                  <Check size={14} className="icon" />
+                  <span>ปกติ</span>
+                </button>
+                <button
+                  type="button"
+                  className={`priority-btn urgent ${priority === 'URGENT' ? 'active' : ''}`}
+                  onClick={() => setPriority('URGENT')}
+                >
+                  <Zap size={14} className="icon" />
+                  <span>ด่วน</span>
+                </button>
+              </div>
             </div>
 
             {/* CUSTOM GRAPHIC PROFILE SELECTOR */}
@@ -1281,11 +1296,11 @@ export function JobForm({
                 <strong className="text-red">฿{calculatedTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</strong>
               </div>
               <div className="fin-line-row muted">
-                <span>มัดจำ ({depositMethod === 'CASH' ? 'เงินสด' : 'โอน'}):</span>
-                <span>฿{depositBaht.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+                <span>มัดจำ{depositMethod ? ` (${depositMethod === 'CASH' ? 'เงินสด' : 'โอนจ่าย'})` : ''}:</span>
+                <span>฿{depositBaht ? Number(depositBaht).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '0.00'}</span>
               </div>
               <div className="fin-line-row remaining-border">
-                <span>คงเหลือ ({remainingMethod === 'CASH' ? 'เงินสด' : 'โอน'}):</span>
+                <span>คงเหลือ{remainingMethod ? ` (${remainingMethod === 'CASH' ? 'เงินสด' : 'โอนจ่าย'})` : ''}:</span>
                 <strong className={calculatedRemaining > 0 ? 'text-red' : 'text-green'}>
                   ฿{calculatedRemaining.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                 </strong>

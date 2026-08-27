@@ -15,6 +15,7 @@ import {
   updateJobStageAction
 } from '../actions';
 import { DesignWorkbench, type DesignProof } from '../../../components/design-workbench';
+import { JobInteractiveStepper } from '../../../components/job-interactive-stepper';
 import { JobPaperSheet, type JobOrderSpec } from '../../../components/job-paper-sheet';
 
 type JobDetail = {
@@ -146,9 +147,47 @@ export default async function JobDetailPage({
       .select('id, version, image_url, note, created_at, creator:profiles(full_name)')
       .eq('job_id', id)
       .order('version', { ascending: false });
-    if (proofs) proofsData = proofs;
+    if (proofs && proofs.length > 0) proofsData = proofs;
   } catch {
-    // Ignore if table does not exist yet
+    // Ignore if table does not exist
+  }
+
+  // Fail-safe fallback: query activity_logs for proof records
+  if (proofsData.length === 0) {
+    try {
+      const { data: allLogs } = await supabase
+        .from('activity_logs')
+        .select('id, action, created_at, metadata, user:profiles(full_name)')
+        .eq('entity_id', id)
+        .in('action', ['DESIGN_PROOF', 'DESIGN_PROOF_REMOVED'])
+        .order('created_at', { ascending: false });
+
+      if (allLogs && allLogs.length > 0) {
+        const deletedIds = new Set(
+          allLogs
+            .filter((l: any) => l.action === 'DESIGN_PROOF_REMOVED')
+            .map((l: any) => l.metadata?.deleted_proof_id)
+            .filter(Boolean)
+        );
+
+        const activeProofLogs = allLogs.filter(
+          (l: any) => l.action === 'DESIGN_PROOF' && !deletedIds.has(l.id)
+        );
+
+        if (activeProofLogs.length > 0) {
+          proofsData = activeProofLogs.map((log: any, index: number) => ({
+            id: log.id,
+            version: log.metadata?.version || (activeProofLogs.length - index),
+            image_url: log.metadata?.image_url,
+            note: log.metadata?.note,
+            created_at: log.created_at,
+            creator: log.user,
+          }));
+        }
+      }
+    } catch {
+      // Ignore fallback errors
+    }
   }
 
   let assignedGraphicName = '';
@@ -188,8 +227,10 @@ export default async function JobDetailPage({
     );
   }
 
-  // Determine active sidebar menu and sub-item
-  const activeMenu = isGraphic || job.stage === 'DESIGN' ? '/jobs?stage=DESIGN' : '/jobs';
+  // Determine active sidebar menu and sub-item:
+  // Graphic sees active job under "งานออกแบบ" (/jobs?stage=DESIGN)
+  // Admin / Owner sees active job under "รายการงาน" (/jobs)
+  const activeMenu = isGraphic ? '/jobs?stage=DESIGN' : '/jobs';
 
   // Stepper logical state calculation
   // 1: ADMIN (รับงาน), 2: DESIGN (ออกแบบ), 3: PRODUCTION (ผลิต), 4: DELIVERY (ส่งมอบ), 5: COMPLETE (เสร็จสิ้น)
@@ -240,60 +281,21 @@ export default async function JobDetailPage({
               </div>
             </div>
 
-            {/* STAGE STEPPER PIPELINE (ACCURATE & STATUS-AWARE) */}
-            <div className="compact-stage-stepper">
-              {/* Step 1: รับงาน / รอกราฟิกรับงาน */}
-              <div
-                className={`stepper-pill ${!isWaitingAcceptance ? 'passed' : 'active'}`}
-                style={isWaitingAcceptance ? { background: '#fef3c7', color: '#b45309', borderColor: '#fde68a' } : undefined}
-              >
-                <span className="step-dot">{!isWaitingAcceptance ? '✓' : '1'}</span>
-                <span className="step-name">{!isWaitingAcceptance ? 'รับงานแล้ว' : 'รอกราฟิกรับงาน'}</span>
-              </div>
-
-              {/* Step 2: ออกแบบ */}
-              <div
-                className={`stepper-pill ${isDesignApproved ? 'passed' : (job.stage === 'DESIGN' ? 'active' : '')}`}
-              >
-                <span className="step-dot">{isDesignApproved ? '✓' : '2'}</span>
-                <span className="step-name">
-                  {isWaitingCustomer
-                    ? 'รอตรวจแบบ'
-                    : isDesignApproved
-                    ? 'แบบผ่านแล้ว'
-                    : 'กำลังออกแบบ'}
-                </span>
-              </div>
-
-              {/* Step 3: ผลิต */}
-              <div
-                className={`stepper-pill ${['DELIVERY', 'COMPLETE'].includes(job.stage) ? 'passed' : (job.stage === 'PRODUCTION' ? 'active' : '')}`}
-              >
-                <span className="step-dot">{['DELIVERY', 'COMPLETE'].includes(job.stage) ? '✓' : '3'}</span>
-                <span className="step-name">ผลิต</span>
-              </div>
-
-              {/* Step 4: ส่งมอบ */}
-              <div
-                className={`stepper-pill ${job.stage === 'COMPLETE' ? 'passed' : (job.stage === 'DELIVERY' ? 'active' : '')}`}
-              >
-                <span className="step-dot">{job.stage === 'COMPLETE' ? '✓' : '4'}</span>
-                <span className="step-name">ส่งมอบ</span>
-              </div>
-
-              {/* Step 5: เสร็จสิ้น */}
-              <div
-                className={`stepper-pill ${job.stage === 'COMPLETE' ? 'passed active' : ''}`}
-              >
-                <span className="step-dot">{job.stage === 'COMPLETE' ? '✓' : '5'}</span>
-                <span className="step-name">เสร็จสิ้น</span>
-              </div>
-            </div>
+            {/* INTERACTIVE 5-STEP PIPELINE (CLICK TO CHANGE STAGE VIA MODAL) */}
+            <JobInteractiveStepper
+              jobId={job.id}
+              stage={job.stage}
+              designStatus={job.design_status}
+              status={job.status}
+              jobNumber={job.job_number}
+              hasProofs={proofsData.length > 0}
+            />
           </div>
 
           {/* DESIGN PROOFS & WORKBENCH */}
           <DesignWorkbench
             jobId={job.id}
+            jobNumber={job.job_number}
             stage={job.stage}
             designStatus={design_status}
             assignedGraphicName={assignedGraphicName}

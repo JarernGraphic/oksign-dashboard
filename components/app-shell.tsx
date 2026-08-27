@@ -1,11 +1,12 @@
-﻿import Link from 'next/link';
+import Link from 'next/link';
 import {
   Bell, BriefcaseBusiness, CircleDollarSign, ClipboardList, FileText,
-  LayoutDashboard, LogOut, Paintbrush, Plus, Search, Settings, Users, ChevronRight
+  LayoutDashboard, LogOut, Paintbrush, Plus, Search, Settings, Users, UserCheck, ChevronRight
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { logoutAction } from '../app/actions';
 import { ThemeToggle } from './theme-toggle';
+import { SidebarUserCard } from './sidebar-user-card';
 
 export type CurrentProfile = {
   id: string;
@@ -26,6 +27,7 @@ const navigation = [
   ] },
   { label: 'การดำเนินงาน', items: [
     { name: 'งานออกแบบ', icon: Paintbrush, href: '/jobs?stage=DESIGN' },
+    { name: 'พนักงาน', icon: UserCheck, href: '/staff' },
   ] },
   { label: 'การเงินและระบบ', items: [
     { name: 'ใบเสนอราคา', icon: FileText, href: '/quotations' },
@@ -94,52 +96,7 @@ export function AppShell({
             </div>
           ))}
         </nav>
-        <div style={{ borderTop: '1px solid var(--line)', paddingTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Link href="/settings" className="sidebar-user" style={{ flex: 1, textDecoration: 'none', borderTop: 'none' }} title="ไปยังหน้าการตั้งค่า">
-            {profile.avatar_url ? (
-              <img
-                src={profile.avatar_url}
-                alt={profile.full_name}
-                style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover' }}
-              />
-            ) : (
-              <div className="avatar">{profile.full_name.slice(0, 1)}</div>
-            )}
-            <div>
-              <strong>{profile.full_name}</strong>
-              <span>
-                {(() => {
-                  const code = profile.role?.code;
-                  if (code === 'OWNER') return 'เจ้าของร้าน';
-                  if (code === 'ADMIN') return 'แอดมิน (รวมบัญชี)';
-                  if (code === 'GRAPHIC') return 'กราฟิก';
-                  if (code === 'PRODUCTION') return 'ช่าง';
-                  return profile.role?.name_th || 'เจ้าของร้าน';
-                })()}
-              </span>
-            </div>
-          </Link>
-          <form action={logoutAction} style={{ margin: 0 }}>
-            <button
-              type="submit"
-              title="ออกจากระบบ"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '8px',
-                borderRadius: '6px',
-                color: '#71717a',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'background-color 0.15s, color 0.15s',
-              }}
-            >
-              <LogOut size={16} />
-            </button>
-          </form>
-        </div>
+        <SidebarUserCard profile={profile as any} />
       </aside>
       <section className="workspace">
         <header className="topbar">

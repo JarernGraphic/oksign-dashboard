@@ -11,7 +11,7 @@ export function PrintHeaderActions({ jobId }: { jobId: string }) {
         กลับหน้ารายละเอียดงาน
       </Link>
       <div className="print-header-info">
-        <span>📄 ขนาดเอกสาร: A5 (148 × 210 มม.)</span>
+        <span>ขนาดเอกสาร: A5 (148 × 210 มม.)</span>
         <button
           className="primary-button"
           onClick={() => window.print()}

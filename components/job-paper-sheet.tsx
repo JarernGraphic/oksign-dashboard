@@ -197,7 +197,7 @@ export function JobPaperSheet({
                   <label className="paper-radio-label read-only">
                     <input
                       type="checkbox"
-                      checked={spec.depositMethod === 'BANK_TRANSFER' || (depositBaht > 0 && !spec.depositMethod)}
+                      checked={spec.depositMethod === 'BANK_TRANSFER'}
                       readOnly
                     />
                     <span>โอนจ่าย</span>

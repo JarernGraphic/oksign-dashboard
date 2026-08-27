@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, type ChangeEvent, type FormEvent } from 'react';
+import { useState, useRef, useEffect, type ChangeEvent, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Building2, Camera, Check, Globe, Image as ImageIcon,
   Mail, MessageCircle, Phone, Plus, Trash2, UploadCloud, User, X
@@ -47,9 +48,14 @@ export function CustomerModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [mounted, setMounted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen || !mounted) return null;
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -136,7 +142,7 @@ export function CustomerModal({
     }
   };
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
       <div className="customer-modal-dialog" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
@@ -350,6 +356,7 @@ export function CustomerModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

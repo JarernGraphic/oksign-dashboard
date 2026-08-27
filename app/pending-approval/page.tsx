@@ -22,10 +22,13 @@ export default async function PendingApprovalPage() {
     .eq('id', user.id)
     .maybeSingle();
 
-  // If already approved or is owner, go straight to dashboard
-  if (profile?.is_active || (profile?.role as any)?.code === 'OWNER') {
-    redirect('/');
+  // Auto-activate and direct immediately to dashboard
+  if (profile && !profile.is_active) {
+    try {
+      await supabase.from('profiles').update({ is_active: true }).eq('id', user.id);
+    } catch (e) {}
   }
+  redirect('/');
 
   const displayName = profile?.full_name || user.user_metadata?.full_name || 'สมาชิกใหม่';
   const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || null;

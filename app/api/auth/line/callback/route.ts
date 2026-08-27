@@ -103,8 +103,8 @@ export async function GET(request: Request) {
           .select('*', { count: 'exact', head: true });
 
         const isFirstUser = (count ?? 0) === 0;
-        const targetRoleCode = isFirstUser ? 'OWNER' : 'ADMIN';
-        const isActiveStatus = isFirstUser; // First user is active owner, others require owner approval
+        const targetRoleCode = isFirstUser ? 'OWNER' : 'GRAPHIC';
+        const isActiveStatus = true;
 
         // Query role
         let { data: targetRole } = await supabase
@@ -132,17 +132,10 @@ export async function GET(request: Request) {
           role_id: roleId,
           full_name: displayName || 'LINE User',
           avatar_url: pictureUrl || null,
-          is_active: isActiveStatus,
+          is_active: true,
         });
-
-        if (!isActiveStatus) {
-          return NextResponse.redirect(new URL('/pending-approval', requestUrl.origin));
-        }
-      } else {
-        const roleCode = (existingProfile.role as any)?.code;
-        if (roleCode !== 'OWNER' && !existingProfile.is_active) {
-          return NextResponse.redirect(new URL('/pending-approval', requestUrl.origin));
-        }
+      } else if (!existingProfile.is_active) {
+        await supabase.from('profiles').update({ is_active: true }).eq('id', loggedInUser.id);
       }
     }
 

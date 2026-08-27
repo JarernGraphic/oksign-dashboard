@@ -208,8 +208,8 @@ export default async function JobPrintPage({ params }: { params: Promise<{ id: s
                 <span className={`a5-check ${spec.depositMethod === 'CASH' ? 'checked' : ''}`}>
                   <i>{spec.depositMethod === 'CASH' ? '✓' : ''}</i> เงินสด
                 </span>
-                <span className={`a5-check ${spec.depositMethod === 'BANK_TRANSFER' || (depositBaht > 0 && !spec.depositMethod) ? 'checked' : ''}`}>
-                  <i>{spec.depositMethod === 'BANK_TRANSFER' || (depositBaht > 0 && !spec.depositMethod) ? '✓' : ''}</i> โอนจ่าย
+                <span className={`a5-check ${spec.depositMethod === 'BANK_TRANSFER' ? 'checked' : ''}`}>
+                  <i>{spec.depositMethod === 'BANK_TRANSFER' ? '✓' : ''}</i> โอนจ่าย
                 </span>
               </div>
             </div>
