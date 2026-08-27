@@ -584,7 +584,8 @@ export function JobPaperSheet({
                 ))}
                 {spec.customFinishing ? (
                   <div className="custom-finishing-text">
-                    <span>ระบุ: {spec.customFinishing}</span>
+                    <span>ระบุ: </span>
+                    <span className="custom-finishing-val">{spec.customFinishing}</span>
                   </div>
                 ) : null}
               </div>

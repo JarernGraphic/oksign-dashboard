@@ -467,6 +467,11 @@ export function JobForm({
             <div className="paper-header-right">
               {/* Job Code Box */}
               <div className="paper-job-number-box">
+                {(priority === 'URGENT' || priority === 'VERY_URGENT') && (
+                  <div className="paper-urgent-stamp-badge">
+                    {priority === 'VERY_URGENT' ? 'ด่วนพิเศษ' : 'ด่วน'}
+                  </div>
+                )}
                 <span className="paper-job-label">รหัสงาน</span>
                 <div className="paper-job-value-pill">
                   <div className="job-num-prefix-group">

@@ -2033,14 +2033,24 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
   background: transparent;
   outline: none;
   font-size: 13px;
-  font-weight: 600;
-  color: #000;
+  font-weight: 700;
+  color: #dc2626;
   width: 100%;
   padding: 0;
 }
 .paper-input.inline-clean-input {
   font-weight: 700;
-  color: #b91c1c;
+  color: #dc2626;
+}
+.paper-val-display {
+  font-size: 13px;
+  font-weight: 700;
+  color: #dc2626;
+  width: 100%;
+}
+.paper-val-display.bold {
+  font-weight: 800;
+  color: #dc2626;
 }
 
 .paper-customer-wrap {
@@ -2090,6 +2100,12 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
   gap: 4px;
   font-size: 11.5px;
 }
+.dim-val,
+.num-val,
+.text-val {
+  color: #dc2626;
+  font-weight: 700;
+}
 .paper-input-underline {
   border: none;
   border-bottom: 1px dotted #000;
@@ -2099,7 +2115,7 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
   font-weight: 700;
   text-align: center;
   padding: 1px 4px;
-  color: #000;
+  color: #dc2626;
 }
 .paper-input-underline.dim-input {
   width: 75px;
@@ -2162,18 +2178,25 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
   font-size: 11px;
   font-weight: 700;
 }
+.deposit-val-display {
+  color: #dc2626;
+  font-weight: 800;
+  font-size: 13px;
+}
 .paper-input-clean {
   border: none;
   background: transparent;
   outline: none;
   font-size: 12.5px;
   font-weight: 700;
+  color: #dc2626;
   width: 75px;
   padding: 0;
 }
 .remaining-val-display {
   font-size: 13px;
   font-weight: 800;
+  color: #dc2626;
 }
 .paper-box-payment .pay-methods {
   display: flex;
@@ -2227,21 +2250,24 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
 }
 .paper-urgent-stamp-badge {
   position: absolute;
-  top: -4px;
-  right: -8px;
-  border: 2.2px solid #dc2626;
-  color: #dc2626;
+  top: -10px;
+  right: -12px;
+  background: #dc2626;
+  color: #ffffff;
+  border: 2px solid #991b1b;
   font-weight: 900;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1;
-  padding: 3px 8px;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 1px 4px rgba(220, 38, 38, 0.2);
+  padding: 4px 12px;
+  border-radius: 6px;
+  transform: rotate(-10deg);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.45);
   z-index: 10;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  letter-spacing: 1.5px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 .paper-job-label {
   font-size: 11.5px;
@@ -2319,6 +2345,14 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
   padding: 3px 0;
   cursor: pointer;
   box-sizing: border-box;
+  color: #dc2626;
+}
+.date-val-box {
+  font-size: 14px;
+  font-weight: 800;
+  color: #dc2626;
+  text-align: center;
+  width: 100%;
 }
 .paper-date-input::-webkit-calendar-picker-indicator {
   position: absolute;
@@ -2328,6 +2362,7 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
 .paper-date-input::-webkit-datetime-edit {
   width: 100%;
   text-align: center;
+  color: #dc2626;
 }
 .paper-date-input::-webkit-datetime-edit-fields-wrapper {
   display: inline-flex;
@@ -2416,6 +2451,18 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
   align-items: center;
   gap: 6px;
 }
+.contact-val-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: #dc2626;
+  border-bottom: 1px dotted #71717a;
+  padding: 1px 4px;
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
 .contact-icon-circle {
   width: 20px;
   height: 20px;
@@ -2442,7 +2489,7 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
   outline: none;
   font-size: 13px;
   font-weight: 700;
-  color: #b91c1c;
+  color: #dc2626;
   width: 100%;
   padding: 0;
   cursor: pointer;
@@ -2664,12 +2711,20 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
   font-size: 11.5px;
   font-weight: 600;
 }
+.mini-text-val,
+.custom-finishing-val {
+  color: #dc2626;
+  font-weight: 700;
+  font-size: 11.5px;
+}
 .paper-input-mini {
   border: none;
   border-bottom: 1px dotted #000;
   background: transparent;
   outline: none;
-  font-size: 10.5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #dc2626;
   padding: 0 2px;
   width: 60px;
 }
@@ -2698,10 +2753,12 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
 .tube-box-btn:hover {
   background: #f4f4f5;
 }
-.tube-box-btn.active {
-  background: #000000;
-  color: #ffffff;
-  border-color: #000000;
+.tube-box-btn.active,
+.tube-box.active {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #dc2626 !important;
+  font-weight: 800;
 }
 
 
@@ -2714,17 +2771,30 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
   gap: 4px;
   margin-top: 2px;
 }
-.notes-heading-label {
+.notes-heading-label,
+.paper-notes-label {
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
+}
+.paper-notes-content-box {
+  border: 1.5px solid #000;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #dc2626;
+  min-height: 38px;
+  white-space: pre-wrap;
 }
 .paper-notes-textarea {
   width: 100%;
   border: 1.5px solid #000;
   border-radius: 8px;
   padding: 6px 10px;
-  font-size: 11.5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #dc2626;
   font-family: inherit;
   resize: vertical;
   outline: none;
@@ -3896,8 +3966,18 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
     break-after: avoid !important;
   }
   .paper-urgent-stamp-badge {
-    border: 2px solid #dc2626 !important;
-    color: #dc2626 !important;
+    background: #dc2626 !important;
+    color: #ffffff !important;
+    border: 2px solid #991b1b !important;
+    transform: rotate(-10deg) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .tube-box-btn.active,
+  .tube-box.active {
+    background: #dc2626 !important;
+    color: #ffffff !important;
+    border-color: #dc2626 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
