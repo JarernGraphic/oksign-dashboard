@@ -2250,23 +2250,24 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
 }
 .paper-urgent-stamp-badge {
   position: absolute;
-  top: 10px;
-  right: -10px;
+  top: 8px;
+  right: -8px;
   background: #dc2626;
   color: #ffffff;
   border: 2px solid #b91c1c;
   font-weight: 900;
-  font-size: 26px;
-  line-height: 1;
-  padding: 6px 18px;
-  border-radius: 10px;
-  transform: rotate(26deg);
-  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.45);
+  font-size: 25px;
+  line-height: 1.1;
+  padding: 4px 16px 6px 16px;
+  border-radius: 9px;
+  transform: rotate(30deg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
   z-index: 10;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  letter-spacing: 1.5px;
+  text-align: center;
+  letter-spacing: 1px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 .paper-job-label {
@@ -3966,12 +3967,12 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
     break-after: avoid !important;
   }
   .paper-urgent-stamp-badge {
-    top: 10px !important;
-    right: -10px !important;
+    top: 8px !important;
+    right: -8px !important;
     background: #dc2626 !important;
     color: #ffffff !important;
     border: 2px solid #991b1b !important;
-    transform: rotate(26deg) !important;
+    transform: rotate(30deg) !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -4528,6 +4529,7 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
   padding: 3px 0;
   cursor: pointer;
   box-sizing: border-box;
+  color: #dc2626 !important;
 }
 .paper-date-input::-webkit-calendar-picker-indicator {
   position: absolute;
@@ -4537,6 +4539,7 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
 .paper-date-input::-webkit-datetime-edit {
   width: 100%;
   text-align: center;
+  color: #dc2626 !important;
 }
 .paper-date-input::-webkit-datetime-edit-fields-wrapper {
   display: inline-flex;
@@ -5735,6 +5738,7 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
   padding: 3px 0;
   cursor: pointer;
   box-sizing: border-box;
+  color: #dc2626 !important;
 }
 .paper-date-input::-webkit-calendar-picker-indicator {
   position: absolute;
@@ -5744,6 +5748,7 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
 .paper-date-input::-webkit-datetime-edit {
   width: 100%;
   text-align: center;
+  color: #dc2626 !important;
 }
 .paper-date-input::-webkit-datetime-edit-fields-wrapper {
   display: inline-flex;
@@ -7099,7 +7104,7 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
 .paper-val-display {
   font-size: 13px;
   font-weight: 700;
-  color: #000000;
+  color: #dc2626;
   padding: 1px 4px;
   min-height: 20px;
   display: flex;
@@ -7109,57 +7114,64 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
 .dim-val {
   font-size: 13px;
   font-weight: 700;
-  color: #000000;
+  color: #dc2626;
   margin: 0 4px;
 }
 
 .num-val {
   font-size: 13px;
   font-weight: 700;
-  color: #000000;
+  color: #dc2626;
   margin: 0 4px;
 }
 
 .text-val {
   font-size: 12px;
-  font-weight: 600;
-  color: #000000;
+  font-weight: 700;
+  color: #dc2626;
   margin-left: 4px;
 }
 
 .date-val-box {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #000000;
+  font-size: 14px;
+  font-weight: 800;
+  color: #dc2626;
   text-align: center;
   width: 100%;
 }
 
 .contact-val-text {
-  font-size: 12px;
-  font-weight: 600;
-  color: #000000;
-  margin-left: 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #dc2626;
+  border-bottom: 1.2px dotted #52525b;
+  padding: 2px 4px;
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
 }
 
 .mini-text-val {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
-  color: #000000;
+  color: #dc2626;
   margin-left: 4px;
 }
 
-.custom-finishing-text {
-  font-size: 11px;
-  font-weight: 600;
-  color: #000000;
+.custom-finishing-text,
+.custom-finishing-val {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #dc2626;
   margin-top: 4px;
 }
 
 .paper-notes-content-box {
   font-size: 12px;
   font-weight: 600;
-  color: #000000;
+  color: #dc2626;
   padding: 6px 10px;
   background: #ffffff;
   border: 1px solid #000000;
