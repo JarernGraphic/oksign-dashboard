@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
-import { getCurrentProfile } from '../../lib/current-profile';
+import { getCurrentProfile, OKSIGN_ORG_ID } from '../../lib/current-profile';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
 
 export type JobFormState = { error?: string };
@@ -83,6 +83,7 @@ export async function createJobAction(_state: JobFormState, formData: FormData):
   const requirementsText = JSON.stringify(specObject);
 
   const supabase = await createSupabaseServerClient();
+  const profile = await getCurrentProfile();
   const { data: newJobId, error } = await supabase.rpc('create_job_from_brief', {
     target_customer_id: customerId,
     job_title: title,
@@ -159,17 +160,25 @@ export async function createJobAction(_state: JobFormState, formData: FormData):
   // Trigger notification to graphic designer if assigned
   if (graphicId && newJobId) {
     try {
+      const { data: createdJobData } = await supabase
+        .from('jobs')
+        .select('job_number')
+        .eq('id', String(newJobId))
+        .single();
+
+      const jobNumber = createdJobData?.job_number || '';
       await supabase.from('notifications').insert({
-        organization_id: profile.organization_id,
+        organization_id: profile.organization_id || OKSIGN_ORG_ID,
         recipient_id: graphicId,
         sender_id: profile.id,
         job_id: String(newJobId),
         notification_type: 'JOB_ASSIGNED',
-        title: `คุณได้รับมอบหมายงานใหม่ [${title}]`,
-        message: `คุณได้รับการมอบหมายให้ออกแบบงาน: ${title}`,
+        title: jobNumber ? `งานใหม่ [${jobNumber}] ${title}` : `คุณได้รับมอบหมายงานใหม่ [${title}]`,
+        message: `คุณได้รับการมอบหมายให้ออกแบบงาน: ${title} โดย ${profile.full_name}`,
+        is_read: false,
       });
-    } catch {
-      // Ignore notification insert error if table not yet initialized
+    } catch (notifErr) {
+      console.error('Failed to send assignment notification:', notifErr);
     }
   }
 
@@ -785,9 +794,34 @@ export async function notifyGraphicRevisionAction(formData: FormData) {
     },
   });
 
+  // 3. Notify assigned graphic designer
+  const { data: jobInfo } = await supabase
+    .from('jobs')
+    .select('job_number, title, assigned_graphic_id')
+    .eq('id', jobId)
+    .single();
+
+  if (jobInfo?.assigned_graphic_id) {
+    try {
+      await supabase.from('notifications').insert({
+        organization_id: profile.organization_id || OKSIGN_ORG_ID,
+        recipient_id: jobInfo.assigned_graphic_id,
+        sender_id: profile.id,
+        job_id: jobId,
+        notification_type: 'REVISION_REQUESTED',
+        title: `ลูกค้าแจ้งแก้ไขแบบ [${jobInfo.job_number || 'งาน'}]`,
+        message: note ? `หมายเหตุ: ${note}` : `งาน "${jobInfo.title}" มีการขอแก้ไขแบบร่าง โดย ${profile.full_name}`,
+        is_read: false,
+      });
+    } catch (notifErr) {
+      console.error('Failed to send revision notification:', notifErr);
+    }
+  }
+
   revalidatePath(`/jobs/${jobId}`);
   revalidatePath('/jobs');
   revalidatePath('/');
+  revalidatePath('/notifications');
 
   return { success: 'ส่งแจ้งเตือนการแก้ไขงานให้กราฟิกเรียบร้อยแล้ว!' };
 }

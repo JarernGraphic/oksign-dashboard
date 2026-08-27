@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       }),
     });
 
-    const tokenData = await tokenRes.json();
+    const tokenData = (await tokenRes.json()) as any;
 
     if (!tokenRes.ok || !tokenData.access_token) {
       console.error('LINE token exchange failed:', tokenData);
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
       },
     });
 
-    const profileData = await profileRes.json();
+    const profileData = (await profileRes.json()) as any;
 
     if (!profileRes.ok || !profileData.userId) {
       console.error('LINE profile fetch failed:', profileData);

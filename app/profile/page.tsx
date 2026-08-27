@@ -14,7 +14,7 @@ export default async function ProfilePage() {
   }
 
   return (
-    <AppShell profile={profile as any}>
+    <AppShell profile={profile} active="ตั้งค่า">
       <main className="main-content">
         <div className="page-header">
           <div>

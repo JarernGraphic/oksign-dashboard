@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from './supabase/server';
 
@@ -7,14 +8,15 @@ export type CurrentProfile = {
   id: string;
   organization_id: string;
   full_name: string;
+  email?: string | null;
   avatar_url?: string | null;
   is_active: boolean;
   role: { code: string; name_th: string };
-  organization: { name: string };
+  organization: { name: string; id?: string };
   unreadCount?: number;
 };
 
-export async function getCurrentProfile(): Promise<CurrentProfile> {
+export const getCurrentProfile = cache(async (): Promise<CurrentProfile> => {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -99,33 +101,49 @@ export async function getCurrentProfile(): Promise<CurrentProfile> {
       try {
         await supabase.from('profiles').update({ is_active: true }).eq('id', profile.id);
         profile.is_active = true;
-      } catch (e) {}
+      } catch {
+        // Ignore update failure
+      }
     }
 
     let unreadCount = 0;
     try {
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from('notifications')
         .select('*', { count: 'exact', head: true })
         .eq('recipient_id', profile.id)
         .eq('is_read', false);
-      if (count) unreadCount = count;
+      if (count && !error) {
+        unreadCount = count;
+      } else if (error) {
+        // Fallback: count pending assigned jobs for this graphic
+        const { count: pendingJobCount } = await supabase
+          .from('jobs')
+          .select('id', { count: 'exact', head: true })
+          .eq('assigned_graphic_id', profile.id)
+          .or('stage.eq.ADMIN,design_status.eq.WAITING_DESIGN');
+        if (pendingJobCount) unreadCount = pendingJobCount;
+      }
     } catch {
-      // Ignore if table does not exist
+      // Ignore if error
     }
+
+    const roleData = profile.role as unknown as { code: string; name_th: string } | null;
+    const orgData = profile.organization as unknown as { name: string } | null;
 
     return {
       id: profile.id,
       organization_id: profile.organization_id || OKSIGN_ORG_ID,
       full_name: profile.full_name || 'Staff',
+      email: user.email || null,
       avatar_url: profile.avatar_url || null,
       is_active: profile.is_active ?? true,
-      role: (profile.role as any) || { code: 'OWNER', name_th: 'เจ้าของร้าน' },
-      organization: (profile.organization as any) || { name: 'OKSIGN' },
+      role: roleData || { code: 'OWNER', name_th: 'เจ้าของร้าน' },
+      organization: { id: profile.organization_id || OKSIGN_ORG_ID, name: orgData?.name || 'OKSIGN' },
       unreadCount,
     };
   }
 
   // If still completely missing, redirect to setup
   redirect('/setup');
-}
+});

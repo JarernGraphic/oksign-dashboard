@@ -31,6 +31,7 @@ export type JobOrderSpec = {
   finishing?: string[];
   customFinishing?: string;
   notes?: string;
+  priority?: string;
 };
 
 export function JobPaperSheet({

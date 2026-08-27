@@ -121,11 +121,11 @@ export function DesignWorkbench({
         },
         body: JSON.stringify({ jobId, jobNum: jobNumber || '' }),
       });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setSyncState({ loading: false, error: data.error || 'เกิดข้อผิดพลาดในการซิงก์' });
+      const data = (await res.json()) as any;
+      if (!res.ok || data?.error) {
+        setSyncState({ loading: false, error: data?.error || 'เกิดข้อผิดพลาดในการซิงก์' });
       } else {
-        setSyncState({ loading: false, msg: data.success });
+        setSyncState({ loading: false, msg: data?.success });
         setTimeout(() => {
           window.location.reload();
         }, 1200);

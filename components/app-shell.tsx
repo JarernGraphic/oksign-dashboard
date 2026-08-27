@@ -7,15 +7,17 @@ import type { ReactNode } from 'react';
 import { logoutAction } from '../app/actions';
 import { ThemeToggle } from './theme-toggle';
 import { SidebarUserCard } from './sidebar-user-card';
+import { NotificationBell } from './notification-bell';
 
 export type CurrentProfile = {
   id: string;
+  organization_id?: string;
   full_name: string;
-  email: string;
+  email?: string | null;
   avatar_url?: string | null;
   unreadCount?: number;
   role?: { code: string; name_th: string } | null;
-  organization: { id: string; name: string };
+  organization?: { id?: string; name: string };
 };
 
 const navigation = [
@@ -111,30 +113,13 @@ export function AppShell({
           </form>
           <div className="top-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <ThemeToggle />
-            <Link className="icon-button" href="/notifications" aria-label="การแจ้งเตือน" style={{ position: 'relative' }}>
-              <Bell size={20} />
-              {profile.unreadCount && profile.unreadCount > 0 ? (
-                <span
-                  style={{
-                    position: 'absolute',
-                    top: '2px',
-                    right: '2px',
-                    width: '9px',
-                    height: '9px',
-                    backgroundColor: '#ef4444',
-                    borderRadius: '50%',
-                    border: '2px solid #ffffff'
-                  }}
-                  title={`มี ${profile.unreadCount} การแจ้งเตือนใหม่`}
-                />
-              ) : null}
-            </Link>
+            <NotificationBell initialUnreadCount={profile.unreadCount ?? 0} />
           </div>
         </header>
         <div className="content">
           {children}
           <footer>
-            <span>{profile.organization.name} · OKSIGN Dashboard</span>
+            <span>{profile.organization?.name || 'OKSIGN'} · OKSIGN Dashboard</span>
             <span>เชื่อมต่อฐานข้อมูลแล้ว <i /></span>
           </footer>
         </div>

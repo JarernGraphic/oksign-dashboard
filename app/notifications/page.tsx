@@ -48,8 +48,47 @@ export default async function NotificationsPage() {
   ]);
 
   const jobs = (deadlineJobsData ?? []) as unknown as Job[];
-  const appNotifs = (appNotifsData ?? []) as AppNotification[];
   const nowTime = now.getTime();
+  let appNotifs = (appNotifsData ?? []) as AppNotification[];
+
+  // Fallback to assigned jobs if notifications table returned empty
+  if (appNotifs.length === 0) {
+    const { data: assignedJobs } = await supabase
+      .from('jobs')
+      .select('id, job_number, title, stage, status, design_status, created_at, customer:customers(name)')
+      .eq('assigned_graphic_id', profile.id)
+      .order('created_at', { ascending: false })
+      .limit(15);
+
+    if (assignedJobs && assignedJobs.length > 0) {
+      appNotifs = assignedJobs.map((j: any) => {
+        let type = 'JOB_ASSIGNED';
+        let title = `งานใหม่ [${j.job_number || 'Job'}] ${j.title}`;
+        let message = `คุณได้รับมอบหมายให้ออกแบบงานนี้${j.customer?.name ? ` (ลูกค้า: ${j.customer.name})` : ''}`;
+        const isUnread = j.stage === 'ADMIN' || j.design_status === 'WAITING_DESIGN' || j.design_status === 'REVISION';
+
+        if (j.design_status === 'APPROVED') {
+          type = 'CUSTOMER_APPROVED';
+          title = `ลูกค้ายืนยันแบบแล้ว [${j.job_number || 'Job'}]`;
+          message = `งาน "${j.title}" ได้รับการอนุมัติแบบแล้ว พร้อมเข้าสู่ฝ่ายผลิต`;
+        } else if (j.design_status === 'REVISION') {
+          type = 'REVISION_REQUESTED';
+          title = `ลูกค้าขอแก้ไขแบบ [${j.job_number || 'Job'}]`;
+          message = `งาน "${j.title}" มีการขอปรับแก้แบบร่าง`;
+        }
+
+        return {
+          id: j.id,
+          title,
+          message,
+          notification_type: type,
+          created_at: j.created_at,
+          job_id: j.id,
+          is_read: !isUnread,
+        };
+      });
+    }
+  }
 
   if (appNotifs.some((n) => !n.is_read)) {
     try {

@@ -30,8 +30,8 @@ export default async function PendingApprovalPage() {
   }
   redirect('/');
 
-  const displayName = profile?.full_name || user.user_metadata?.full_name || 'สมาชิกใหม่';
-  const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || null;
+  const displayName = profile?.full_name || user?.user_metadata?.full_name || 'สมาชิกใหม่';
+  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || null;
 
   return (
     <main

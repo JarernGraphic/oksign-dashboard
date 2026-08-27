@@ -1,7 +1,16 @@
 import Link from 'next/link';
 import {
-  BriefcaseBusiness, Building2, ChevronRight, CircleDollarSign, Filter,
-  MessageCircle, Phone, Plus, Search, User, UserPlus, Users
+  BriefcaseBusiness,
+  Building2,
+  ChevronRight,
+  MessageCircle,
+  Phone,
+  Plus,
+  Search,
+  User,
+  UserPlus,
+  Users,
+  MapPin,
 } from 'lucide-react';
 import { AppShell } from '../../components/app-shell';
 import { getCurrentProfile } from '../../lib/current-profile';
@@ -30,7 +39,8 @@ export default async function CustomersPage({
   const profile = await getCurrentProfile();
   const supabase = await createSupabaseServerClient();
 
-  let query = supabase
+  // Fetch all customers to compute accurate stats
+  const { data: allCustomersData } = await supabase
     .from('customers')
     .select(`
       id, customer_number, name, customer_type, phone, line_name, facebook_name, address, created_at,
@@ -40,29 +50,46 @@ export default async function CustomersPage({
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
+  const allCustomers = (allCustomersData ?? []) as unknown as Customer[];
+
+  // Calculate statistics
+  const totalCount = allCustomers.length;
+  const personCount = allCustomers.filter((c) => c.customer_type === 'PERSON').length;
+  const businessCount = allCustomers.filter((c) => c.customer_type === 'BUSINESS').length;
+  const totalJobsCount = allCustomers.reduce((acc, c) => acc + (c.jobs?.[0]?.count ?? 0), 0);
+
+  const personPercent = totalCount > 0 ? Math.round((personCount / totalCount) * 100) : 0;
+  const businessPercent = totalCount > 0 ? Math.round((businessCount / totalCount) * 100) : 0;
+
+  // Filter based on search params
+  let filteredCustomers = allCustomers;
+
   if (params.q?.trim()) {
-    const term = params.q.trim();
-    query = query.or(
-      `name.ilike.%${term}%,phone.ilike.%${term}%,customer_number.ilike.%${term}%,line_name.ilike.%${term}%,facebook_name.ilike.%${term}%`
+    const term = params.q.trim().toLowerCase();
+    filteredCustomers = filteredCustomers.filter(
+      (c) =>
+        (c.name && c.name.toLowerCase().includes(term)) ||
+        (c.phone && c.phone.toLowerCase().includes(term)) ||
+        (c.customer_number && c.customer_number.toLowerCase().includes(term)) ||
+        (c.line_name && c.line_name.toLowerCase().includes(term)) ||
+        (c.facebook_name && c.facebook_name.toLowerCase().includes(term))
     );
   }
 
   if (params.type && ['PERSON', 'BUSINESS'].includes(params.type)) {
-    query = query.eq('customer_type', params.type);
+    filteredCustomers = filteredCustomers.filter((c) => c.customer_type === params.type);
   }
-
-  const { data, error } = await query;
-  const customers = (data ?? []) as unknown as Customer[];
 
   return (
     <AppShell profile={profile} active="/customers" createHref="/customers/new">
+      {/* SECTION HEADER */}
       <div className="section-heading">
         <div>
           <p>งานขาย & CRM</p>
-          <h1>ลูกค้า (Customers)</h1>
-          <span>ค้นหา จัดการข้อมูล และดูประวัติงาน/การเงินรายบุคคล</span>
+          <h1>จัดการข้อมูลลูกค้า (Customers Overview)</h1>
+          <span>ค้นหา จัดการข้อมูล และดูประวัติการสั่งงาน/ประวัติการเงินรายบุคคล</span>
         </div>
-        <Link className="primary-button" href="/customers/new">
+        <Link className="primary-button" href="/customers/new" style={{ borderRadius: '12px' }}>
           <UserPlus size={17} />
           <span>เพิ่มลูกค้าใหม่</span>
         </Link>
@@ -72,136 +99,220 @@ export default async function CustomersPage({
         <div className="success-banner">บันทึกข้อมูลลูกค้าเรียบร้อยแล้ว</div>
       ) : null}
 
-      <section className="panel list-panel">
-        <div className="list-toolbar">
-          <form className="search-form-wrap">
-            <Search size={17} className="search-icon" />
-            <input
-              name="q"
-              defaultValue={params.q}
-              placeholder="ค้นหาชื่อ, เบอร์โทร, LINE, Facebook หรือรหัสลูกค้า..."
-              className="search-input"
-            />
+      {/* TOP KPI STATS CARDS (Matching Reference Image 2 Style) */}
+      <div className="customer-stats-grid">
+        {/* Card 1: Total Customers */}
+        <div className="customer-stat-card">
+          <div className="customer-stat-icon-wrapper red">
+            <Users size={22} />
+          </div>
+          <div className="customer-stat-info">
+            <span className="customer-stat-value">{totalCount}</span>
+            <span className="customer-stat-label">ลูกค้าทั้งหมดในระบบ</span>
+            <span className="customer-stat-subtext">ฐานข้อมูลลูกค้า Active ทั้งหมด</span>
+          </div>
+        </div>
+
+        {/* Card 2: Individual Customers */}
+        <div className="customer-stat-card">
+          <div className="customer-stat-icon-wrapper rose">
+            <User size={22} />
+          </div>
+          <div className="customer-stat-info">
+            <span className="customer-stat-value">{personCount}</span>
+            <span className="customer-stat-label">บุคคลธรรมดา</span>
+            <span className="customer-stat-subtext">{personPercent}% ของลูกค้าทั้งหมด</span>
+          </div>
+        </div>
+
+        {/* Card 3: Corporate Customers */}
+        <div className="customer-stat-card">
+          <div className="customer-stat-icon-wrapper amber">
+            <Building2 size={22} />
+          </div>
+          <div className="customer-stat-info">
+            <span className="customer-stat-value">{businessCount}</span>
+            <span className="customer-stat-label">นิติบุคคล / ร้านค้า</span>
+            <span className="customer-stat-subtext">{businessPercent}% ของลูกค้าทั้งหมด</span>
+          </div>
+        </div>
+
+        {/* Card 4: Total Accumulated Jobs */}
+        <div className="customer-stat-card">
+          <div className="customer-stat-icon-wrapper blue">
+            <BriefcaseBusiness size={22} />
+          </div>
+          <div className="customer-stat-info">
+            <span className="customer-stat-value">{totalJobsCount} งาน</span>
+            <span className="customer-stat-label">งานสั่งทำรวมทั้งหมด</span>
+            <span className="customer-stat-subtext">
+              เฉลี่ย {(totalJobsCount / (totalCount || 1)).toFixed(1)} งาน/คน
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* MAIN CUSTOMER TABLE PANEL */}
+      <section className="customer-list-panel">
+        {/* TOOLBAR: SEARCH & PILL FILTERS */}
+        <div className="customer-toolbar">
+          {/* Search Form */}
+          <form className="customer-search-form" method="GET" action="/customers">
+            <div className="customer-search-input-wrap">
+              <Search size={17} />
+              <input
+                name="q"
+                defaultValue={params.q}
+                placeholder="ค้นหาชื่อ, เบอร์โทร, LINE, Facebook หรือรหัสลูกค้า..."
+                className="customer-search-input"
+              />
+            </div>
             {params.type && <input type="hidden" name="type" value={params.type} />}
-            <button type="submit" className="search-btn">ค้นหา</button>
+            <button type="submit" className="customer-search-submit-btn">
+              ค้นหา
+            </button>
           </form>
 
-          <div className="filter-type-pills">
+          {/* Filter Pills Group */}
+          <div className="customer-pills-group">
             <Link
               href={`/customers${params.q ? `?q=${params.q}` : ''}`}
-              className={`filter-pill ${!params.type ? 'active' : ''}`}
+              className={`customer-pill-item ${!params.type ? 'active' : ''}`}
             >
-              ทั้งหมด ({customers.length})
+              <span>ทั้งหมด</span>
+              <span style={{ opacity: 0.85, fontSize: '11px' }}>({totalCount})</span>
             </Link>
             <Link
               href={`/customers?type=PERSON${params.q ? `&q=${params.q}` : ''}`}
-              className={`filter-pill ${params.type === 'PERSON' ? 'active' : ''}`}
+              className={`customer-pill-item ${params.type === 'PERSON' ? 'active' : ''}`}
             >
-              บุคคลธรรมดา
+              <User size={14} />
+              <span>บุคคลธรรมดา</span>
+              <span style={{ opacity: 0.85, fontSize: '11px' }}>({personCount})</span>
             </Link>
             <Link
               href={`/customers?type=BUSINESS${params.q ? `&q=${params.q}` : ''}`}
-              className={`filter-pill ${params.type === 'BUSINESS' ? 'active' : ''}`}
+              className={`customer-pill-item ${params.type === 'BUSINESS' ? 'active' : ''}`}
             >
-              นิติบุคคล / ร้านค้า
+              <Building2 size={14} />
+              <span>นิติบุคคล / ร้านค้า</span>
+              <span style={{ opacity: 0.85, fontSize: '11px' }}>({businessCount})</span>
             </Link>
           </div>
         </div>
 
-        {error ? (
-          <div className="error-state">โหลดข้อมูลไม่สำเร็จ: {error.message}</div>
-        ) : customers.length ? (
-          <div className="table-wrap">
-            <table className="customers-data-table">
+        {/* CUSTOMER TABLE */}
+        {filteredCustomers.length ? (
+          <div className="customer-table-container">
+            <table className="customer-modern-table">
               <thead>
                 <tr>
-                  <th>รหัสลูกค้า</th>
-                  <th>ชื่อลูกค้า</th>
-                  <th>เบอร์โทรศัพท์</th>
-                  <th>LINE / Facebook</th>
-                  <th>ช่องทาง</th>
-                  <th>ประวัติงาน</th>
-                  <th>วันที่เพิ่ม</th>
-                  <th></th>
+                  <th style={{ width: '130px' }}>รหัสลูกค้า</th>
+                  <th style={{ minWidth: '240px' }}>ชื่อลูกค้า & ประเภท</th>
+                  <th style={{ minWidth: '200px' }}>การติดต่อ (เบอร์โทร / โซเชียล)</th>
+                  <th style={{ minWidth: '130px' }}>ช่องทาง</th>
+                  <th style={{ minWidth: '120px' }}>ประวัติงาน</th>
+                  <th style={{ minWidth: '130px' }}>วันที่เพิ่ม</th>
+                  <th style={{ width: '70px', textAlign: 'center' }}></th>
                 </tr>
               </thead>
               <tbody>
-                {customers.map((customer) => {
+                {filteredCustomers.map((customer) => {
                   const jobCount = customer.jobs?.[0]?.count ?? 0;
+                  const isBusiness = customer.customer_type === 'BUSINESS';
+
                   return (
-                    <tr key={customer.id} className="clickable-customer-row">
+                    <tr key={customer.id} className="customer-row-item">
+                      {/* Code */}
                       <td>
-                        <Link href={`/customers/${customer.id}`} className="customer-code-link">
-                          <strong>{customer.customer_number || 'CUS-NEW'}</strong>
+                        <Link href={`/customers/${customer.id}`} style={{ textDecoration: 'none' }}>
+                          <span className="c-code-badge">
+                            {customer.customer_number || 'CUS-NEW'}
+                          </span>
                         </Link>
                       </td>
+
+                      {/* Name & Avatar */}
                       <td>
-                        <Link href={`/customers/${customer.id}`} className="customer-name-cell">
-                          <span className="customer-avatar-badge">
-                            {customer.customer_type === 'BUSINESS' ? (
-                              <Building2 size={16} />
-                            ) : (
-                              <User size={16} />
-                            )}
-                          </span>
-                          <div>
-                            <strong className="c-full-name">{customer.name}</strong>
-                            <span className="c-type-sub">
-                              {customer.customer_type === 'BUSINESS' ? 'บริษัท / ร้านค้า' : 'บุคคลธรรมดา'}
+                        <Link href={`/customers/${customer.id}`} className="c-profile-cell">
+                          <div className={`c-avatar-circle ${isBusiness ? 'business' : 'person'}`}>
+                            {isBusiness ? <Building2 size={18} /> : <User size={18} />}
+                          </div>
+                          <div className="c-name-box">
+                            <span className="c-name-text">{customer.name}</span>
+                            <span className={`c-type-tag ${isBusiness ? 'business' : 'person'}`}>
+                              {isBusiness ? 'นิติบุคคล / ร้านค้า' : 'บุคคลธรรมดา'}
                             </span>
                           </div>
                         </Link>
                       </td>
+
+                      {/* Contact Info */}
                       <td>
-                        {customer.phone ? (
-                          <span className="phone-cell">
-                            <Phone size={13} />
-                            {customer.phone}
-                          </span>
-                        ) : (
-                          <span className="text-muted">-</span>
-                        )}
-                      </td>
-                      <td>
-                        <div className="social-cell">
-                          {customer.line_name && (
-                            <span className="badge-social line">
-                              <MessageCircle size={12} /> {customer.line_name}
-                            </span>
+                        <div className="c-contact-stack">
+                          {customer.phone ? (
+                            <a href={`tel:${customer.phone}`} className="c-phone-link">
+                              <Phone size={13} style={{ color: '#dc2626' }} />
+                              <span>{customer.phone}</span>
+                            </a>
+                          ) : (
+                            <span style={{ color: '#a1a1aa', fontSize: '12px' }}>ไม่ระบุเบอร์</span>
                           )}
-                          {customer.facebook_name && (
-                            <span className="badge-social fb">
-                              FB: {customer.facebook_name}
-                            </span>
-                          )}
-                          {!customer.line_name && !customer.facebook_name && <span className="text-muted">-</span>}
+
+                          <div className="c-social-row">
+                            {customer.line_name && (
+                              <span className="c-social-pill line">
+                                <MessageCircle size={11} />
+                                <span>{customer.line_name}</span>
+                              </span>
+                            )}
+                            {customer.facebook_name && (
+                              <span className="c-social-pill fb">
+                                <span>FB: {customer.facebook_name}</span>
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
+
+                      {/* Lead Source */}
                       <td>
-                        <span className="badge gray mini">
+                        <span className="c-lead-source-tag">
                           {customer.lead_source?.name ?? 'ไม่ระบุ'}
                         </span>
                       </td>
+
+                      {/* Job History */}
                       <td>
                         <Link
                           href={`/customers/${customer.id}?tab=jobs`}
-                          className={`job-count-badge ${jobCount > 0 ? 'has-jobs' : ''}`}
+                          className={`c-job-badge ${jobCount > 0 ? 'has-jobs' : 'empty'}`}
                         >
                           <BriefcaseBusiness size={13} />
                           <span>{jobCount} งาน</span>
                         </Link>
                       </td>
+
+                      {/* Date */}
                       <td>
-                        <span className="date-muted">
+                        <span style={{ fontSize: '12px', color: '#71717a', fontWeight: 500 }}>
                           {new Intl.DateTimeFormat('th-TH', {
-                            dateStyle: 'medium',
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
                             timeZone: 'Asia/Bangkok',
                           }).format(new Date(customer.created_at))}
                         </span>
                       </td>
-                      <td className="action-col">
-                        <Link href={`/customers/${customer.id}`} className="view-profile-btn" title="ดูโปรไฟล์">
-                          <ChevronRight size={18} />
+
+                      {/* Action */}
+                      <td style={{ textAlign: 'center' }}>
+                        <Link
+                          href={`/customers/${customer.id}`}
+                          className="c-view-btn"
+                          title="ดูรายละเอียดลูกค้า"
+                        >
+                          <ChevronRight size={17} />
                         </Link>
                       </td>
                     </tr>
@@ -211,13 +322,43 @@ export default async function CustomersPage({
             </table>
           </div>
         ) : (
-          <div className="empty-state">
-            <Users size={36} />
-            <h3>ไม่พบข้อมูลลูกค้า</h3>
-            <p>{params.q ? 'ลองเปลี่ยนคำค้นหาใหม่อีกครั้ง' : 'เริ่มเพิ่มลูกค้ารายแรกเพื่อเปิดใช้งาน'}</p>
-            <Link className="primary-button" href="/customers/new">
+          <div
+            style={{
+              padding: '60px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              textAlign: 'center',
+              color: '#71717a',
+            }}
+          >
+            <div
+              style={{
+                width: '54px',
+                height: '54px',
+                borderRadius: '50%',
+                backgroundColor: '#fef2f2',
+                color: '#dc2626',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Users size={28} />
+            </div>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#18181b', margin: 0 }}>
+              ไม่พบข้อมูลลูกค้าที่ค้นหา
+            </h3>
+            <p style={{ fontSize: '13px', margin: 0, color: '#71717a' }}>
+              {params.q
+                ? `ไม่พบคำว่า "${params.q}" ลองเปลี่ยนคำค้นหาหรือตัวกรองใหม่อีกครั้ง`
+                : 'เริ่มต้นเพิ่มลูกค้ารายแรกเพื่อเปิดใช้งานระบบ CRM'}
+            </p>
+            <Link className="primary-button" href="/customers/new" style={{ marginTop: '6px' }}>
               <Plus size={16} />
-              <span>เพิ่มลูกค้า</span>
+              <span>เพิ่มลูกค้าใหม่</span>
             </Link>
           </div>
         )}

@@ -132,74 +132,10 @@ export default async function JobsPage({
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
-
-  // 1. Fetch all profiles for Filter dropdowns (Admins & Graphics)
-  const { data: allProfilesData } = await supabase
-    .from('profiles')
-    .select('id, full_name, avatar_url, role:roles(code, name_th)')
-    .order('full_name');
-
-  const allProfiles = allProfilesData || [];
-  const graphicsList = allProfiles
-    .filter((p: any) => p.role?.code === 'GRAPHIC' || p.role?.name_th?.includes('กราฟิก'))
-    .map((p: any) => ({
-      id: p.id,
-      name: p.full_name,
-      avatar_url: p.avatar_url,
-      role_name: p.role?.name_th || 'กราฟิก',
-    }));
-
-  const adminsList = allProfiles
-    .filter((p: any) => ['ADMIN', 'OWNER'].includes(p.role?.code))
-    .map((p: any) => ({
-      id: p.id,
-      name: p.full_name,
-      avatar_url: p.avatar_url,
-      role_name: p.role?.name_th || (p.role?.code === 'OWNER' ? 'เจ้าของร้าน' : 'แอดมิน'),
-    }));
-
-  // Map profile names for easy lookup
-  const profileMap = new Map<string, string>();
-  allProfiles.forEach((p: any) => profileMap.set(p.id, p.full_name));
-
-  // 2. Query summary statistics for Top Cards
   const startOfThisMonth = new Date(currentYear, currentMonth - 1, 1).toISOString();
   const endOfThisMonth = new Date(currentYear, currentMonth, 0, 23, 59, 59).toISOString();
 
-  let statWaitingCount = 0;
-  let statDesigningCount = 0;
-  let statSentProofCount = 0;
-  let statMonthlyTotalCount = 0;
-
-  if (isDesignPage) {
-    const targetGraphic = selectedGraphicId || profile.id;
-    const [
-      { count: waitingCount },
-      { count: designingCount },
-      { count: sentProofCount },
-      { count: monthlyCount },
-    ] = await Promise.all([
-      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('assigned_graphic_id', targetGraphic).or('stage.eq.ADMIN,design_status.eq.WAITING_DESIGN'),
-      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('assigned_graphic_id', targetGraphic).eq('stage', 'DESIGN').or('design_status.eq.DESIGNING,design_status.eq.REVISION,design_status.is.null'),
-      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('assigned_graphic_id', targetGraphic).eq('stage', 'DESIGN').eq('design_status', 'WAITING_CUSTOMER'),
-      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('assigned_graphic_id', targetGraphic).gte('created_at', startOfThisMonth).lte('created_at', endOfThisMonth),
-    ]);
-
-    statWaitingCount = waitingCount || 0;
-    statDesigningCount = designingCount || 0;
-    statSentProofCount = sentProofCount || 0;
-    statMonthlyTotalCount = monthlyCount || 0;
-  } else {
-    const { count: monthlyCount } = await supabase
-      .from('jobs')
-      .select('id', { count: 'exact', head: true })
-      .gte('created_at', startOfThisMonth)
-      .lte('created_at', endOfThisMonth);
-
-    statMonthlyTotalCount = monthlyCount || 0;
-  }
-
-  // 3. Main Jobs Query
+  // 1. Build Main Jobs Query
   let mainQuery = supabase
     .from('jobs')
     .select('id, job_number, title, stage, status, design_status, priority, deadline, grand_total_satang, assigned_graphic_id, created_by, created_at, customer:customers(name, phone)')
@@ -248,7 +184,60 @@ export default async function JobsPage({
     mainQuery = mainQuery.gte('created_at', startDate).lte('created_at', endDate);
   }
 
-  const { data: rawJobsData, error } = await mainQuery;
+  // 2. Fetch Profiles, Stats, and Jobs Concurrently
+  const allProfilesPromise = supabase
+    .from('profiles')
+    .select('id, full_name, avatar_url, role:roles(code, name_th)')
+    .order('full_name');
+
+  const statsPromise = isDesignPage
+    ? Promise.all([
+        supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('assigned_graphic_id', selectedGraphicId || profile.id).or('stage.eq.ADMIN,design_status.eq.WAITING_DESIGN'),
+        supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('assigned_graphic_id', selectedGraphicId || profile.id).eq('stage', 'DESIGN').or('design_status.eq.DESIGNING,design_status.eq.REVISION,design_status.is.null'),
+        supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('assigned_graphic_id', selectedGraphicId || profile.id).eq('stage', 'DESIGN').eq('design_status', 'WAITING_CUSTOMER'),
+        supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('assigned_graphic_id', selectedGraphicId || profile.id).gte('created_at', startOfThisMonth).lte('created_at', endOfThisMonth),
+      ])
+    : Promise.all([
+        Promise.resolve({ count: 0 }),
+        Promise.resolve({ count: 0 }),
+        Promise.resolve({ count: 0 }),
+        supabase.from('jobs').select('id', { count: 'exact', head: true }).gte('created_at', startOfThisMonth).lte('created_at', endOfThisMonth),
+      ]);
+
+  const [{ data: allProfilesData }, [statWaitingRes, statDesigningRes, statSentProofRes, statMonthlyRes], { data: rawJobsData, error }] = await Promise.all([
+    allProfilesPromise,
+    statsPromise,
+    mainQuery,
+  ]);
+
+  const allProfiles = allProfilesData || [];
+  const graphicsList = allProfiles
+    .filter((p: any) => p.role?.code === 'GRAPHIC' || p.role?.name_th?.includes('กราฟิก'))
+    .map((p: any) => ({
+      id: p.id,
+      name: p.full_name,
+      avatar_url: p.avatar_url,
+      role_name: p.role?.name_th || 'กราฟิก',
+    }));
+
+  const adminsList = allProfiles
+    .filter((p: any) => ['ADMIN', 'OWNER'].includes(p.role?.code))
+    .map((p: any) => ({
+      id: p.id,
+      name: p.full_name,
+      avatar_url: p.avatar_url,
+      role_name: p.role?.name_th || (p.role?.code === 'OWNER' ? 'เจ้าของร้าน' : 'แอดมิน'),
+    }));
+
+  // Map profile names for easy lookup
+  const profileMap = new Map<string, string>();
+  allProfiles.forEach((p: any) => profileMap.set(p.id, p.full_name));
+
+  const statWaitingCount = statWaitingRes.count || 0;
+  const statDesigningCount = statDesigningRes.count || 0;
+  const statSentProofCount = statSentProofRes.count || 0;
+  const statMonthlyTotalCount = statMonthlyRes.count || 0;
+
   const jobs = (rawJobsData ?? []) as unknown as Job[];
 
   // 4. Fetch latest proof images for Thumbnails
@@ -267,25 +256,8 @@ export default async function JobsPage({
           proofThumbnails.set(p.job_id, p.image_url);
         }
       });
-    } catch {}
-
-    // Fallback: check activity_logs for uploaded or synced proofs
-    const missingJobIds = jobIds.filter((id) => !proofThumbnails.has(id));
-    if (missingJobIds.length > 0) {
-      try {
-        const { data: logs } = await supabase
-          .from('activity_logs')
-          .select('entity_id, action, metadata, created_at')
-          .in('entity_id', missingJobIds)
-          .in('action', ['DESIGN_PROOF', 'DESIGN_PROOF_CONFIRMED'])
-          .order('created_at', { ascending: false });
-
-        logs?.forEach((l) => {
-          if (!proofThumbnails.has(l.entity_id) && l.metadata?.image_url) {
-            proofThumbnails.set(l.entity_id, l.metadata.image_url);
-          }
-        });
-      } catch {}
+    } catch {
+      // Ignore if table or network error
     }
   }
 

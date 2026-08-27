@@ -86,3 +86,124 @@ export async function logoutAction() {
   await supabase.auth.signOut();
   redirect('/login');
 }
+
+export type NotificationItem = {
+  id: string;
+  title: string;
+  message: string | null;
+  notification_type: string;
+  created_at: string;
+  job_id: string | null;
+  is_read: boolean;
+  sender?: { full_name: string; avatar_url: string | null } | null;
+};
+
+export async function getNotificationsAction(): Promise<{ notifications: NotificationItem[]; unreadCount: number }> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { notifications: [], unreadCount: 0 };
+
+    const { data: notifs, error } = await supabase
+      .from('notifications')
+      .select('id, title, message, notification_type, created_at, job_id, is_read, sender:profiles!sender_id(full_name, avatar_url)')
+      .eq('recipient_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(15);
+
+    if (!error && notifs && notifs.length > 0) {
+      const notifications = notifs as unknown as NotificationItem[];
+      const unreadCount = notifications.filter((n) => !n.is_read).length;
+      return { notifications, unreadCount };
+    }
+
+    // Smart Fallback: query jobs assigned to user
+    const { data: assignedJobs } = await supabase
+      .from('jobs')
+      .select('id, job_number, title, stage, status, design_status, created_at, created_by, customer:customers(name)')
+      .eq('assigned_graphic_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (assignedJobs && assignedJobs.length > 0) {
+      const derivedNotifications: NotificationItem[] = assignedJobs.map((j: any) => {
+        let type = 'JOB_ASSIGNED';
+        let title = `งานใหม่ [${j.job_number || 'Job'}] ${j.title}`;
+        let message = `คุณได้รับมอบหมายให้ออกแบบงานนี้${j.customer?.name ? ` (ลูกค้า: ${j.customer.name})` : ''}`;
+        const isUnread = j.stage === 'ADMIN' || j.design_status === 'WAITING_DESIGN' || j.design_status === 'REVISION';
+
+        if (j.design_status === 'APPROVED') {
+          type = 'CUSTOMER_APPROVED';
+          title = `ลูกค้ายืนยันแบบแล้ว [${j.job_number || 'Job'}]`;
+          message = `งาน "${j.title}" ได้รับการอนุมัติแบบแล้ว พร้อมเข้าสู่ฝ่ายผลิต`;
+        } else if (j.design_status === 'REVISION') {
+          type = 'REVISION_REQUESTED';
+          title = `ลูกค้าขอแก้ไขแบบ [${j.job_number || 'Job'}]`;
+          message = `งาน "${j.title}" มีการขอปรับแก้แบบร่าง`;
+        }
+
+        return {
+          id: j.id,
+          title,
+          message,
+          notification_type: type,
+          created_at: j.created_at,
+          job_id: j.id,
+          is_read: !isUnread,
+        };
+      });
+
+      const unreadCount = derivedNotifications.filter((n) => !n.is_read).length;
+      return { notifications: derivedNotifications, unreadCount };
+    }
+
+    return { notifications: [], unreadCount: 0 };
+  } catch (err) {
+    console.error('getNotificationsAction error:', err);
+    return { notifications: [], unreadCount: 0 };
+  }
+}
+
+export async function markNotificationAsReadAction(notificationId: string): Promise<{ success: boolean }> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { success: false };
+
+    await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', notificationId)
+      .eq('recipient_id', user.id);
+
+    return { success: true };
+  } catch (err) {
+    console.error('markNotificationAsReadAction error:', err);
+    return { success: false };
+  }
+}
+
+export async function markAllNotificationsAsReadAction(): Promise<{ success: boolean }> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { success: false };
+
+    await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('recipient_id', user.id)
+      .eq('is_read', false);
+
+    return { success: true };
+  } catch (err) {
+    console.error('markAllNotificationsAsReadAction error:', err);
+    return { success: false };
+  }
+}

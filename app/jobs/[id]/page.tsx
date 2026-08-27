@@ -100,7 +100,25 @@ export default async function JobDetailPage({
   const isOwnerOrAdmin = ['OWNER', 'ADMIN'].includes(profile.role?.code || '');
   const isGraphic = profile.role?.code === 'GRAPHIC';
 
-  const [{ data: jobData }, { data: paymentsData }, { data: activitiesData }] = await Promise.all([
+  const proofsPromise = (async () => {
+    try {
+      const res = await supabase
+        .from('job_design_proofs')
+        .select('id, version, image_url, note, created_at, creator:profiles(full_name)')
+        .eq('job_id', id)
+        .order('version', { ascending: false });
+      return res.data || [];
+    } catch {
+      return [];
+    }
+  })();
+
+  const [
+    { data: jobData },
+    { data: paymentsData },
+    { data: activitiesData },
+    fetchedProofs,
+  ] = await Promise.all([
     supabase
       .from('jobs')
       .select(`
@@ -116,6 +134,7 @@ export default async function JobDetailPage({
         paid_amount_satang,
         created_at,
         assigned_graphic_id,
+        assigned_graphic:profiles!assigned_graphic_id(full_name),
         customer:customers(name, phone, line_name),
         brief:briefs(requirements, dimensions, material, quantity)
       `)
@@ -130,77 +149,45 @@ export default async function JobDetailPage({
       : Promise.resolve({ data: [] }),
     supabase
       .from('activity_logs')
-      .select('id, action, created_at, user:profiles(full_name)')
+      .select('id, action, created_at, metadata, user:profiles(full_name)')
       .eq('entity_id', id)
       .order('created_at', { ascending: false }),
+    proofsPromise,
   ]);
 
   if (!jobData) notFound();
   const job = jobData as unknown as JobDetail;
 
   const design_status = job.design_status || 'WAITING_DESIGN';
-  let proofsData: any[] = [];
+  let proofsData: any[] = fetchedProofs || [];
 
-  try {
-    const { data: proofs } = await supabase
-      .from('job_design_proofs')
-      .select('id, version, image_url, note, created_at, creator:profiles(full_name)')
-      .eq('job_id', id)
-      .order('version', { ascending: false });
-    if (proofs && proofs.length > 0) proofsData = proofs;
-  } catch {
-    // Ignore if table does not exist
-  }
+  // Fail-safe fallback: use already fetched activity_logs for proof records if proofsData is empty
+  if (proofsData.length === 0 && activitiesData && activitiesData.length > 0) {
+    const allLogs = activitiesData as any[];
+    const deletedIds = new Set(
+      allLogs
+        .filter((l: any) => l.action === 'DESIGN_PROOF_REMOVED')
+        .map((l: any) => l.metadata?.deleted_proof_id)
+        .filter(Boolean)
+    );
 
-  // Fail-safe fallback: query activity_logs for proof records
-  if (proofsData.length === 0) {
-    try {
-      const { data: allLogs } = await supabase
-        .from('activity_logs')
-        .select('id, action, created_at, metadata, user:profiles(full_name)')
-        .eq('entity_id', id)
-        .in('action', ['DESIGN_PROOF', 'DESIGN_PROOF_REMOVED'])
-        .order('created_at', { ascending: false });
+    const activeProofLogs = allLogs.filter(
+      (l: any) => l.action === 'DESIGN_PROOF' && !deletedIds.has(l.id)
+    );
 
-      if (allLogs && allLogs.length > 0) {
-        const deletedIds = new Set(
-          allLogs
-            .filter((l: any) => l.action === 'DESIGN_PROOF_REMOVED')
-            .map((l: any) => l.metadata?.deleted_proof_id)
-            .filter(Boolean)
-        );
-
-        const activeProofLogs = allLogs.filter(
-          (l: any) => l.action === 'DESIGN_PROOF' && !deletedIds.has(l.id)
-        );
-
-        if (activeProofLogs.length > 0) {
-          proofsData = activeProofLogs.map((log: any, index: number) => ({
-            id: log.id,
-            version: log.metadata?.version || (activeProofLogs.length - index),
-            image_url: log.metadata?.image_url,
-            note: log.metadata?.note,
-            created_at: log.created_at,
-            creator: log.user,
-          }));
-        }
-      }
-    } catch {
-      // Ignore fallback errors
+    if (activeProofLogs.length > 0) {
+      proofsData = activeProofLogs.map((log: any, index: number) => ({
+        id: log.id,
+        version: log.metadata?.version || (activeProofLogs.length - index),
+        image_url: log.metadata?.image_url,
+        note: log.metadata?.note,
+        created_at: log.created_at,
+        creator: log.user,
+      }));
     }
   }
 
-  let assignedGraphicName = '';
-  if (job.assigned_graphic_id) {
-    const { data: graphicProfile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', job.assigned_graphic_id)
-      .single();
-    if (graphicProfile?.full_name) {
-      assignedGraphicName = graphicProfile.full_name;
-    }
-  }
+  const assignedGraphicName = job.assigned_graphic?.full_name || '';
   const payments = (paymentsData ?? []) as Payment[];
   const activities = (activitiesData ?? []) as unknown as Activity[];
   const remaining = job.grand_total_satang - job.paid_amount_satang;
