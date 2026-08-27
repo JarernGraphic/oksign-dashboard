@@ -2250,17 +2250,17 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
 }
 .paper-urgent-stamp-badge {
   position: absolute;
-  top: -12px;
-  right: -16px;
+  top: -8px;
+  right: -6px;
   background: #dc2626;
   color: #ffffff;
   border: 2px solid #b91c1c;
   font-weight: 900;
-  font-size: 22px;
+  font-size: 26px;
   line-height: 1;
-  padding: 5px 16px;
-  border-radius: 8px;
-  transform: rotate(-25deg);
+  padding: 6px 18px;
+  border-radius: 10px;
+  transform: rotate(28deg);
   box-shadow: 0 4px 14px rgba(220, 38, 38, 0.45);
   z-index: 10;
   display: inline-flex;
@@ -3969,7 +3969,7 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
     background: #dc2626 !important;
     color: #ffffff !important;
     border: 2px solid #991b1b !important;
-    transform: rotate(-25deg) !important;
+    transform: rotate(28deg) !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
