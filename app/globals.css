@@ -2223,6 +2223,25 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
   display: flex;
   flex-direction: column;
   align-items: center;
+  position: relative;
+}
+.paper-urgent-stamp-badge {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  border: 2.2px solid #dc2626;
+  color: #dc2626;
+  font-weight: 900;
+  font-size: 14px;
+  line-height: 1;
+  padding: 3px 8px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 1px 4px rgba(220, 38, 38, 0.2);
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .paper-job-label {
   font-size: 11.5px;
@@ -3829,16 +3848,18 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
 @media print {
   @page {
     size: A5 portrait;
-    margin: 0;
+    margin: 0.5cm;
   }
   body, html {
     background: #ffffff !important;
     padding: 0 !important;
     margin: 0 !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    width: 100% !important;
+    height: auto !important;
   }
-  .no-print, .app-shell, .sidebar, .topbar, .print-screen-header {
+  .no-print, .app-shell, .sidebar, .topbar, .print-screen-header, .print-header-bar {
     display: none !important;
   }
   .print-page-wrapper {
@@ -3846,15 +3867,30 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
     padding: 0 !important;
     margin: 0 !important;
     min-height: auto !important;
+    display: block !important;
   }
-  .a5-sheet {
+  .print-a5-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .paper-form-sheet {
     box-shadow: none !important;
-    border: none !important;
-    width: 100vw !important;
-    max-width: 148mm !important;
-    height: 100vh !important;
-    padding: 5mm 6mm !important;
+    border: 1.5px solid #000000 !important;
+    border-radius: 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 8px 12px !important;
     margin: 0 auto !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  .paper-urgent-stamp-badge {
+    border: 2px solid #dc2626 !important;
+    color: #dc2626 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }
 

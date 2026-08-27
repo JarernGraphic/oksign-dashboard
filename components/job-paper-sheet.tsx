@@ -36,6 +36,8 @@ export type JobOrderSpec = {
 export function JobPaperSheet({
   job,
   spec,
+  hideToolbar = false,
+  printMode = false,
 }: {
   job: {
     id: string;
@@ -50,6 +52,8 @@ export function JobPaperSheet({
     brief: { dimensions: string | null; quantity: number } | null;
   };
   spec: JobOrderSpec;
+  hideToolbar?: boolean;
+  printMode?: boolean;
 }) {
   const shapes = new Set(spec.shapes || []);
   const printers = new Set(spec.printers || []);
@@ -92,26 +96,20 @@ export function JobPaperSheet({
   const jobMonth = jobNum.length >= 4 ? jobNum.slice(2, 4) : '08';
   const jobSeq = jobNum.length >= 4 ? jobNum.slice(4) : jobNum;
 
-  return (
-    <div className="embedded-paper-container">
-      <div className="embedded-paper-toolbar">
-        <div className="toolbar-title">
-          <span>ใบรับงานฉบับจริง</span>
-        </div>
-        <div className="toolbar-actions">
-          <Link href={`/jobs/${job.id}/print`} target="_blank" className="paper-action-btn">
-            <Printer size={13} /> พิมพ์ใบรับงาน
-          </Link>
-          <Link href={`/jobs/${job.id}/print`} target="_blank" className="paper-action-btn">
-            <ExternalLink size={13} /> เต็มจอ
-          </Link>
-        </div>
-      </div>
+  const currentPriority = spec.priority || job.priority || '';
+  const isUrgent = ['URGENT', 'HIGH', 'VERY_URGENT', 'NOON', 'EVENING', 'ด่วน', 'ด่วนที่สุด', 'ด่วนพิเศษ', 'รับเที่ยง', 'รับเย็น'].includes(currentPriority);
+  const urgentLabel = (currentPriority === 'NOON' || currentPriority === 'รับเที่ยง') ? 'รับเที่ยง' :
+    ((currentPriority === 'EVENING' || currentPriority === 'รับเย็น') ? 'รับเย็น' :
+    ((currentPriority === 'VERY_URGENT' || currentPriority === 'ด่วนพิเศษ') ? 'ด่วนพิเศษ' : 'ด่วน'));
 
-      <div className="embedded-paper-scroll">
-        <div className="paper-form-sheet" style={{ margin: '0 auto', width: '100%' }}>
-          {/* TOP SECTION: Header Left & Header Right */}
-          <div className="paper-top-grid">
+  const sheetContent = (
+    <div
+      className={`paper-form-sheet ${printMode ? 'print-mode' : ''}`}
+      id={printMode ? 'printable-job-sheet' : undefined}
+      style={{ margin: '0 auto', width: '100%' }}
+    >
+      {/* TOP SECTION: Header Left & Header Right */}
+      <div className="paper-top-grid">
             {/* LEFT COLUMN OF PAPER */}
             <div className="paper-header-left">
               {/* Title Badge & Receiver */}
@@ -238,6 +236,11 @@ export function JobPaperSheet({
                   </div>
                   <span className="job-num-part seq">{jobSeq}</span>
                 </div>
+                {isUrgent && (
+                  <div className="paper-urgent-stamp-badge">
+                    {urgentLabel}
+                  </div>
+                )}
               </div>
 
               {/* Opened Date */}
@@ -596,6 +599,30 @@ export function JobPaperSheet({
             </div>
           </div>
         </div>
+  );
+
+  if (hideToolbar) {
+    return sheetContent;
+  }
+
+  return (
+    <div className="embedded-paper-container">
+      <div className="embedded-paper-toolbar">
+        <div className="toolbar-title">
+          <span>ใบรับงานฉบับจริง</span>
+        </div>
+        <div className="toolbar-actions">
+          <Link href={`/jobs/${job.id}/print`} target="_blank" className="paper-action-btn">
+            <Printer size={13} /> พิมพ์ใบรับงาน
+          </Link>
+          <Link href={`/jobs/${job.id}/print`} target="_blank" className="paper-action-btn">
+            <ExternalLink size={13} /> เต็มจอ
+          </Link>
+        </div>
+      </div>
+
+      <div className="embedded-paper-scroll">
+        {sheetContent}
       </div>
     </div>
   );
