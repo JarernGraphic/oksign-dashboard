@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import {
   Bell, BriefcaseBusiness, CircleDollarSign, ClipboardList, FileText,
-  LayoutDashboard, LogOut, Paintbrush, Plus, Search, Settings, Users, UserCheck, ChevronRight
+  LayoutDashboard, LogOut, Paintbrush, Plus, Search, Settings, Users, UserCheck, ChevronRight, Factory
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { logoutAction } from '../app/actions';
@@ -28,7 +28,8 @@ const navigation = [
     { name: 'ลูกค้า', icon: Users, href: '/customers' },
   ] },
   { label: 'การดำเนินงาน', items: [
-    { name: 'งานออกแบบ', icon: Paintbrush, href: '/jobs?stage=DESIGN' },
+    { name: 'งานออกแบบ', icon: Paintbrush, href: '/jobs?stage=DESIGN&queue=design' },
+    { name: 'งานประกอบ', icon: Factory, href: '/technician' },
     { name: 'พนักงาน', icon: UserCheck, href: '/staff' },
   ] },
   { label: 'การเงินและระบบ', items: [

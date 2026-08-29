@@ -590,6 +590,29 @@ export async function confirmProductionReadyAction(formData: FormData) {
   revalidatePath('/');
 }
 
+export async function confirmTechnicianAssemblyAction(formData: FormData): Promise<void> {
+  const jobId = String(formData.get('jobId') ?? '').trim();
+  if (!jobId) return;
+
+  const profile = await getCurrentProfile();
+  if (!['PRODUCTION', 'ADMIN', 'OWNER'].includes(profile.role?.code || '')) return;
+  const supabase = await createSupabaseServerClient();
+
+  const { data: job, error: jobError } = await supabase
+    .from('jobs').select('id, stage, job_number').eq('id', jobId).eq('organization_id', profile.organization_id).maybeSingle();
+  if (jobError || !job) return;
+  if (job.stage !== 'PRODUCTION') return;
+
+  const { error } = await supabase.from('jobs').update({ stage: 'COMPLETE', status: 'COMPLETED', completed_at: new Date().toISOString() }).eq('id', jobId).eq('organization_id', profile.organization_id);
+  if (error) return;
+  await supabase.from('activity_logs').insert({
+    organization_id: profile.organization_id, entity_type: 'JOB', entity_id: jobId,
+    action: 'TECHNICIAN_CONFIRMED_ASSEMBLY', user_id: profile.id,
+    metadata: { job_number: job.job_number, confirmed_by_name: profile.full_name, confirmed_at: new Date().toISOString() },
+  });
+  revalidatePath('/technician'); revalidatePath(`/jobs/${jobId}`); revalidatePath('/jobs'); revalidatePath('/');
+}
+
 export async function deleteDesignProofAction(formData: FormData) {
   const jobId = String(formData.get('jobId') ?? '').trim();
   const proofId = String(formData.get('proofId') ?? '').trim();
@@ -678,11 +701,15 @@ export async function updateJobStageAction(jobId: string, targetStepIndex: numbe
         stageLabel = 'ส่งแบบ';
       }
       break;
-    case 4: // 4. ผลิต
+    case 4: // 4. ยืนยันการผลิต
       updatePayload = { stage: 'PRODUCTION', design_status: 'APPROVED', status: 'OPEN' };
-      stageLabel = 'ผลิต';
+      stageLabel = 'ยืนยันการผลิต';
       break;
-    case 5: // 5. เสร็จสิ้น
+    case 5: // 5. ส่งผลิตแล้ว
+      updatePayload = { stage: 'DESIGN', design_status: 'APPROVED', status: 'OPEN' };
+      stageLabel = 'ส่งผลิตแล้ว';
+      break;
+    case 6: // 6. เสร็จสิ้น
       updatePayload = { stage: 'COMPLETE', design_status: 'APPROVED', status: 'COMPLETED' };
       stageLabel = 'เสร็จสิ้น';
       break;

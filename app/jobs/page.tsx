@@ -27,7 +27,7 @@ type Job = {
 
 const stageLabels: Record<string, string> = {
   ADMIN: 'รับงาน',
-  DESIGN: 'ออกแบบ',
+  DESIGN: 'ออกแบบ/แก้ไข',
   PRODUCTION: 'ผลิต',
   DELIVERY: 'ส่งมอบ',
   COMPLETE: 'เสร็จสิ้น',
@@ -44,27 +44,27 @@ const getJobStatusBadge = (job: Job) => {
   if (job.stage === 'DESIGN') {
     if (job.design_status === 'WAITING_CUSTOMER') {
       return {
-        label: 'ส่งแบบ',
+        label: 'ส่งแบบ/แก้ไข',
         icon: Send,
         style: { backgroundColor: '#fef2f2', color: '#dc2626', borderColor: '#fecaca' }
       };
     }
     if (job.design_status === 'APPROVED') {
       return {
-        label: 'ผลิต',
+        label: 'ยืนยันการผลิต',
         icon: Factory,
         style: { backgroundColor: '#ffedd5', color: '#c2410c', borderColor: '#fed7aa' }
       };
     }
     return {
-      label: 'กำลังออกแบบ',
+      label: 'ออกแบบ/แก้ไข',
       icon: Palette,
       style: { backgroundColor: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' }
     };
   }
   if (job.stage === 'PRODUCTION') {
     return {
-      label: 'ผลิต',
+      label: 'รอผลิต',
       icon: Factory,
       style: { backgroundColor: '#ffedd5', color: '#c2410c', borderColor: '#fed7aa' }
     };
@@ -115,6 +115,7 @@ export default async function JobsPage({
     month?: string;
     graphic_id?: string;
     admin_id?: string;
+    queue?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -122,7 +123,7 @@ export default async function JobsPage({
   const supabase = await createSupabaseServerClient();
 
   const stage = params.stage;
-  const isDesignPage = stage === 'DESIGN';
+  const isDesignPage = stage === 'DESIGN' && params.queue === 'design';
   const selectedDesignStatus = params.design_status || '';
   const selectedYear = params.year || '';
   const selectedMonth = params.month || '';
@@ -261,7 +262,7 @@ export default async function JobsPage({
     }
   }
 
-  const activeNav = isDesignPage ? '/jobs?stage=DESIGN' : '/jobs';
+  const activeNav = isDesignPage ? '/jobs?stage=DESIGN&queue=design' : '/jobs';
 
   return (
     <AppShell profile={profile} active={activeNav} showCreateButton={false}>
@@ -271,11 +272,11 @@ export default async function JobsPage({
             {isDesignPage ? 'การดำเนินงาน' : 'งานขาย'}
           </p>
           <h1 style={{ fontSize: '26px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px' }}>
-            {isDesignPage ? 'งานออกแบบ' : 'รายการงานทั้งหมด'}
+            {isDesignPage ? 'งานออกแบบ/แก้ไข' : 'รายการงานทั้งหมด'}
           </h1>
           <span style={{ fontSize: '14px', color: '#64748b' }}>
             {isDesignPage
-              ? 'ติดตามและจัดการคิวงานออกแบบของทีมงาน'
+              ? 'ติดตามและจัดการคิวงานออกแบบ/แก้ไขของทีมงาน'
               : 'ติดตามและบริหารจัดการ Job ทั้งหมดของร้าน'}
           </span>
         </div>
@@ -299,7 +300,7 @@ export default async function JobsPage({
               <Sparkles size={24} />
             </div>
             <div>
-              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '500' }}>งานที่กำลังออกแบบ</span>
+              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '500' }}>งานที่กำลังออกแบบ/แก้ไข</span>
               <h2 style={{ fontSize: '28px', fontWeight: '700', margin: '2px 0 0', color: '#0f172a' }}>{statDesigningCount}</h2>
             </div>
           </div>
@@ -309,7 +310,7 @@ export default async function JobsPage({
               <FileCheck size={24} />
             </div>
             <div>
-              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '500' }}>งานที่ส่งแบบแล้ว</span>
+              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '500' }}>งานที่ส่งแบบ/แก้ไข</span>
               <h2 style={{ fontSize: '28px', fontWeight: '700', margin: '2px 0 0', color: '#0f172a' }}>{statSentProofCount}</h2>
             </div>
           </div>

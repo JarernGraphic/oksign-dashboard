@@ -1,6 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap');
 @import 'tailwindcss';
 
+.route-loading { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #f7f8fb; color: #26334a; }
+.route-loading-card { display: flex; align-items: center; gap: 13px; padding: 18px 22px; border: 1px solid #e6eaf1; border-radius: 16px; background: #fff; box-shadow: 0 12px 30px #27365712; }
+.route-loading-card strong, .route-loading-card span { display: block; }
+.route-loading-card strong { font-size: 14px; }
+.route-loading-card span { margin-top: 3px; color: #8792a4; font-size: 12px; }
+.route-loading-icon { color: #3156c9; animation: route-loading-spin 0.9s linear infinite; }
+@keyframes route-loading-spin { to { transform: rotate(360deg); } }
+
 :root {
   --ink: #18181b;
   --muted: #71717a;
@@ -8293,21 +8301,41 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
 .interactive-stepper-pills {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 7px;
+  flex-wrap: nowrap;
+  width: max-content;
+  max-width: 100%;
 }
+
+.staff-pending-panel { padding: 18px 20px; border: 1px solid #fed7aa; border-radius: 14px; background: linear-gradient(135deg, #fffaf5, #fff); }
+.staff-pending-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+.staff-pending-heading h2 { display:flex; align-items:center; gap:8px; margin:0; color:#9a3412; font-size:15px; }
+.staff-pending-heading p { margin:4px 0 0; color:#9a7b67; font-size:12px; }
+.staff-pending-count { padding:5px 10px; border-radius:999px; background:#ffedd5; color:#c2410c; font-size:12px; font-weight:700; }
+.staff-pending-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px; }
+.staff-pending-card { display:flex; align-items:center; gap:12px; padding:13px; border:1px solid #fed7aa; border-radius:12px; background:#fff; }
+.staff-pending-avatar { display:grid; place-items:center; width:44px; height:44px; flex:0 0 44px; overflow:hidden; border-radius:50%; background:#ffedd5; color:#c2410c; font-weight:800; }
+.staff-pending-avatar img { width:100%; height:100%; object-fit:cover; }
+.staff-pending-info { min-width:0; flex:1; }
+.staff-pending-info strong,.staff-pending-info small { display:block; }
+.staff-pending-info strong { overflow:hidden; color:#26334a; font-size:14px; text-overflow:ellipsis; white-space:nowrap; }
+.staff-pending-info span { display:inline-block; margin-top:3px; padding:2px 7px; border:1px solid; border-radius:999px; font-size:10px; font-weight:700; }
+.staff-pending-info small { margin-top:4px; color:#9a7b67; font-size:10px; }
+.staff-approve-button { display:inline-flex; align-items:center; gap:6px; flex-shrink:0; padding:8px 10px; border:0; border-radius:8px; background:#ea580c; color:#fff; font:inherit; font-size:11px; font-weight:700; cursor:pointer; }
+.staff-approve-button:disabled { cursor:wait; opacity:.65; }
+@media (max-width: 700px) { .staff-pending-card { align-items:flex-start; flex-wrap:wrap; } .staff-approve-button { width:100%; justify-content:center; } }
 
 .interactive-stepper-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 42px;
-  padding: 8px 20px;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 13px;
   border-radius: 24px;
   border: 1.5px solid #e2e8f0;
   background: #ffffff;
   color: #475569;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
@@ -8353,15 +8381,15 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
 }
 
 .step-badge-num {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: #e2e8f0;
   color: #64748b;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   flex-shrink: 0;
   transition: all 0.15s ease;
@@ -9130,3 +9158,45 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
 
 
 
+
+.jobs-view-toggle { display:flex; gap:6px; padding:4px; background:#f4f6fa; border:1px solid #e6eaf1; border-radius:10px; }
+.jobs-view-toggle button { display:inline-flex; align-items:center; gap:7px; border:0; border-radius:7px; padding:8px 12px; background:transparent; color:#718096; font:inherit; font-size:13px; cursor:pointer; }
+.jobs-view-toggle button.active { background:#fff; color:#3156c9; box-shadow:0 2px 8px #1e3a8a12; font-weight:700; }
+.customer-job-cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; padding-top:4px; }
+.customer-job-card { overflow:hidden; border:1px solid #e8ebf1; border-radius:16px; background:#fff; color:inherit; text-decoration:none; box-shadow:0 5px 18px #2e3a5a08; transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease; }
+.customer-job-card:hover { transform:translateY(-3px); border-color:#bfcdf8; box-shadow:0 12px 28px #2e3a5a16; }
+.customer-job-card-image { position:relative; display:flex; align-items:center; justify-content:center; height:190px; overflow:hidden; background:linear-gradient(135deg,#eef2ff,#f8fafc); color:#9aa5b5; }
+.customer-job-card-image img { width:100%; height:100%; object-fit:cover; }
+.customer-job-card-image span:not(.badge) { margin-left:8px; font-size:12px; }
+.customer-job-card-stage { position:absolute; top:12px; left:12px; box-shadow:0 2px 8px #0002; }
+.customer-job-card-body { padding:15px 16px 16px; }
+.customer-job-card-top { display:flex; justify-content:space-between; align-items:center; color:#7b8798; font-size:12px; }
+.customer-job-card-top svg { color:#9aa8bd; }
+.customer-job-card h3 { margin:8px 0 13px; color:#26334a; font-size:16px; line-height:1.35; }
+.customer-job-card-meta { display:flex; color:#7a8798; font-size:12px; }
+.customer-job-card-meta span { display:flex; align-items:center; gap:6px; }
+.customer-job-card-footer { display:flex; align-items:center; justify-content:space-between; margin-top:16px; padding-top:13px; border-top:1px solid #edf0f5; }
+.customer-job-card-footer strong { color:#29364d; font-size:15px; }
+.customer-job-card-footer .paid,.customer-job-card-footer .due { font-size:12px; font-weight:700; }
+.customer-job-card-footer .paid { color:#159570; }
+.customer-job-card-footer .due { color:#d97706; }
+@media (max-width: 1050px) { .customer-job-cards { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width: 640px) { .customer-job-cards { grid-template-columns:1fr; } .jobs-view-toggle { margin-top:12px; } }
+@media (max-width: 640px) {
+  .customer-job-card-body { padding: 16px; }
+  .customer-job-card-body .technician-job-number { font-size: 16px; }
+  .customer-job-card-body .technician-job-title { display: block; font-size: 20px; line-height: 1.3; margin: 8px 0 12px; }
+  .technician-job-quantity { font-size: 13px; }
+  .technician-job-specs { gap: 5px; }
+  .technician-job-specs span { font-size: 11px; max-width: 100%; }
+  .customer-job-card-meta { flex-direction: column; gap: 7px; line-height: 1.35; }
+  .customer-job-card-body form { width: 100%; margin-top: 12px; }
+  .customer-job-card-body form .primary-button { width: 100%; height: 42px; padding: 0 14px; font-size: 14px; gap: 7px; }
+  .customer-job-card-body form .primary-button svg { display: inline-block; }
+}
+ .technician-job-number { color: #dc2626; font-weight: 800; }
+.technician-job-title { font-size: 1.12rem; font-weight: 800; color: var(--text); }
+.technician-job-quantity { margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: #fff7ed; color: #c2410c; font-size: 13px; font-weight: 700; }
+.technician-job-quantity strong { font-size: 15px; margin-left: 4px; font-weight: 700; }
+.technician-job-specs { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+.technician-job-specs span { padding: 4px 8px; border-radius: 6px; background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 650; }
