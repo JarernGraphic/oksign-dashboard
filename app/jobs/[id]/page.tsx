@@ -17,6 +17,7 @@ import {
 import { DesignWorkbench, type DesignProof } from '../../../components/design-workbench';
 import { JobInteractiveStepper } from '../../../components/job-interactive-stepper';
 import { JobPaperSheet, type JobOrderSpec } from '../../../components/job-paper-sheet';
+import { JobTimeline, type ActivityLogItem } from '../../../components/job-timeline';
 
 type JobDetail = {
   id: string;
@@ -214,10 +215,16 @@ export default async function JobDetailPage({
     );
   }
 
-  // Determine active sidebar menu and sub-item:
-  // Graphic sees active job under "งานออกแบบ" (/jobs?stage=DESIGN)
-  // Admin / Owner sees active job under "รายการงาน" (/jobs)
-  const activeMenu = isGraphic ? '/jobs?stage=DESIGN' : '/jobs';
+  // Determine active sidebar menu based on User Role:
+  // Graphic role -> "งานออกแบบ" (/jobs?stage=DESIGN&queue=design)
+  // Technician / Production role -> "งานประกอบ" (/technician)
+  // Admin / Owner / System -> "รายการงาน" (/jobs)
+  const isTechnician = ['PRODUCTION', 'TECHNICIAN'].includes(profile.role?.code || '');
+  const activeMenu = isGraphic
+    ? '/jobs?stage=DESIGN&queue=design'
+    : isTechnician
+    ? '/technician'
+    : '/jobs';
 
   // Stepper logical state calculation
   // 1: ADMIN (รับงาน), 2: DESIGN (ออกแบบ), 3: PRODUCTION (ผลิต), 4: DELIVERY (ส่งมอบ), 5: COMPLETE (เสร็จสิ้น)
@@ -354,36 +361,17 @@ export default async function JobDetailPage({
 
           {/* TIMELINE & ACTIVITY LOG (PLACED AT THE BOTTOM) */}
           <section className="panel detail-card">
-            <div className="panel-header">
+            <div className="panel-header" style={{ marginBottom: '18px' }}>
               <div>
-                <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                   <History size={18} className="text-primary" /> ประวัติกิจกรรม (Timeline)
                 </h2>
-                <p>บันทึกการทำงานของ Job</p>
+                <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#64748b' }}>บันทึกการทำงานและสถานะย้อนหลังของ Job นี้</p>
               </div>
             </div>
 
-            <div className="timeline" style={{ maxHeight: '320px', overflowY: 'auto' }}>
-              {activities.length === 0 ? (
-                <p className="mini-empty" style={{ padding: '12px', textAlign: 'center' }}>ยังไม่มีประวัติกิจกรรม</p>
-              ) : (
-                activities.map((activity) => (
-                  <div key={activity.id}>
-                    <i />
-                    <span>
-                      <strong>{actionLabels[activity.action] ?? activity.action}</strong>
-                      <small>
-                        {activity.user?.full_name ?? 'ระบบ'} ·{' '}
-                        {new Intl.DateTimeFormat('th-TH', {
-                          dateStyle: 'medium',
-                          timeStyle: 'short',
-                          timeZone: 'Asia/Bangkok',
-                        }).format(new Date(activity.created_at))}
-                      </small>
-                    </span>
-                  </div>
-                ))
-              )}
+            <div className="timeline-wrapper" style={{ maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
+              <JobTimeline activities={activities as unknown as ActivityLogItem[]} />
             </div>
           </section>
         </main>

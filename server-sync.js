@@ -169,7 +169,7 @@ const server = http.createServer(async (req, res) => {
         if (syncedCount > 0) {
           await supabase.from('jobs').update({
             stage: 'DESIGN',
-            design_status: 'DESIGNING',
+            design_status: 'WAITING_CUSTOMER',
           }).eq('id', jobId);
 
           res.writeHead(200, { 'Content-Type': 'application/json' });

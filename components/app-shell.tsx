@@ -27,14 +27,16 @@ const navigation = [
     { name: 'รายการงาน', icon: BriefcaseBusiness, href: '/jobs' },
     { name: 'ลูกค้า', icon: Users, href: '/customers' },
   ] },
-  { label: 'การดำเนินงาน', items: [
+  { label: 'ออกแบบ', items: [
     { name: 'งานออกแบบ', icon: Paintbrush, href: '/jobs?stage=DESIGN&queue=design' },
+  ] },
+  { label: 'ผลิต', items: [
     { name: 'งานประกอบ', icon: Factory, href: '/technician' },
-    { name: 'พนักงาน', icon: UserCheck, href: '/staff' },
   ] },
   { label: 'การเงินและระบบ', items: [
     { name: 'ใบเสนอราคา', icon: FileText, href: '/quotations' },
     { name: 'รับชำระเงิน', icon: CircleDollarSign, href: '/payments' },
+    { name: 'พนักงาน', icon: UserCheck, href: '/staff' },
     { name: 'ตั้งค่า', icon: Settings, href: '/settings' },
   ] },
 ];
@@ -67,7 +69,10 @@ export function AppShell({
               <p>{section.label}</p>
               {section.items.map((item) => {
                 const Icon = item.icon;
-                const isItemActive = active === item.href || (item.href === '/jobs?stage=DESIGN' && active.includes('DESIGN'));
+                const isItemActive =
+                  active === item.href ||
+                  (item.href.includes('DESIGN') && active.includes('DESIGN')) ||
+                  (item.href === '/jobs' && active === '/jobs');
                 return (
                   <div key={item.name} className="nav-item-wrapper">
                     <Link

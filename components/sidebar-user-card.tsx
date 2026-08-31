@@ -23,7 +23,7 @@ export function SidebarUserCard({ profile }: SidebarUserCardProps) {
     if (code === 'OWNER') return 'เจ้าของร้าน';
     if (code === 'ADMIN') return 'แอดมิน (รวมบัญชี)';
     if (code === 'GRAPHIC') return 'กราฟิก';
-    if (code === 'PRODUCTION') return 'ช่าง';
+    if (code === 'PRODUCTION' || code === 'TECHNICIAN') return 'ช่าง';
     return profile.role?.name_th || 'เจ้าของร้าน';
   };
 

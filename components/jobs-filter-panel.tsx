@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
 
 export type ProfileFilterOption = {
   id: string;
@@ -19,6 +19,7 @@ export function JobsFilterPanel({
   selectedMonth = '',
   selectedGraphicId = '',
   selectedAdminId = '',
+  selectedSort = 'date_desc',
   graphicsList = [],
   adminsList = [],
 }: {
@@ -29,11 +30,12 @@ export function JobsFilterPanel({
   selectedMonth?: string;
   selectedGraphicId?: string;
   selectedAdminId?: string;
+  selectedSort?: string;
   graphicsList?: ProfileFilterOption[];
   adminsList?: ProfileFilterOption[];
 }) {
   // If year, month, graphic, or admin is actively filtered, auto-expand
-  const hasExtraFilters = Boolean(selectedYear || selectedMonth || selectedGraphicId || selectedAdminId);
+  const hasExtraFilters = Boolean(selectedYear || selectedMonth || selectedGraphicId || selectedAdminId || (selectedSort && selectedSort !== 'date_desc'));
   const [isExpanded, setIsExpanded] = useState<boolean>(hasExtraFilters);
 
   const monthsList = [
@@ -59,6 +61,7 @@ export function JobsFilterPanel({
     month?: string;
     graphic_id?: string;
     admin_id?: string;
+    sort?: string;
   }) => {
     const p = new URLSearchParams();
     const curStage = override.stage !== undefined ? override.stage : (isDesignPage ? 'DESIGN' : stage);
@@ -67,13 +70,18 @@ export function JobsFilterPanel({
     const curMonth = override.month !== undefined ? override.month : selectedMonth;
     const curGraphic = override.graphic_id !== undefined ? override.graphic_id : selectedGraphicId;
     const curAdmin = override.admin_id !== undefined ? override.admin_id : selectedAdminId;
+    const curSort = override.sort !== undefined ? override.sort : selectedSort;
 
     if (curStage) p.set('stage', curStage);
-    if (isDesignPage && curDesignStatus) p.set('design_status', curDesignStatus);
+    if (isDesignPage) {
+      p.set('queue', 'design');
+      if (curDesignStatus) p.set('design_status', curDesignStatus);
+    }
     if (curYear) p.set('year', curYear);
     if (curMonth) p.set('month', curMonth);
     if (curGraphic) p.set('graphic_id', curGraphic);
     if (curAdmin) p.set('admin_id', curAdmin);
+    if (curSort) p.set('sort', curSort);
 
     const str = p.toString();
     return str ? `/jobs?${str}` : '/jobs';

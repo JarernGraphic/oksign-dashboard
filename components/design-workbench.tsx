@@ -305,6 +305,32 @@ export function DesignWorkbench({
             </button>
           )}
 
+          <form action={confirmProductionReadyAction} style={{ display: 'inline-flex' }}>
+            <input type="hidden" name="jobId" value={jobId} />
+            <button
+              type="submit"
+              className="primary-button compact"
+              style={{
+                backgroundColor: '#ea580c',
+                color: '#ffffff',
+                fontWeight: '600',
+                fontSize: '12.5px',
+                padding: '5px 12px',
+                borderRadius: '8px',
+                boxShadow: '0 2px 6px rgba(234, 88, 12, 0.25)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+              title="กดยืนยันเมื่อส่งไฟล์พิมพ์เข้ากระบวนการผลิตเรียบร้อยแล้ว"
+            >
+              <FileCheck size={14} />
+              ยืนยันการส่งผลิตแล้ว
+            </button>
+          </form>
+
           {getStatusBadge()}
         </div>
       </div>
@@ -366,20 +392,14 @@ export function DesignWorkbench({
         </div>
       ) : null}
 
-      {designStatus === 'APPROVED' && stage === 'DESIGN' ? (
-        <div className="workbench-workflow-banner green-banner">
+      {stage === 'PRODUCTION' || designStatus === 'APPROVED' ? (
+        <div className="workbench-workflow-banner green-banner" style={{ background: '#ffedd5', border: '1px solid #fed7aa', color: '#c2410c' }}>
           <div>
             <strong>
-              <CheckCircle2 size={15} /> แบบผ่านการอนุมัติแล้ว!
+              <CheckCircle2 size={15} /> ลูกค้ายืนยันแบบแล้ว - อยู่ในขั้นตอนผลิต
             </strong>
-            <p>กราฟิกส่งไฟล์เข้าโฟลเดอร์ผลิตของร้าน แล้วกดยืนยันส่งต่อฝ่ายผลิตได้เลย</p>
+            <p>กราฟิกสามารถส่งไฟล์พิมพ์ได้เลย และงานถูกส่งไปยังแผนกช่างสำหรับประกอบงานเรียบร้อยแล้ว</p>
           </div>
-          <form action={confirmProductionReadyAction}>
-            <input type="hidden" name="jobId" value={jobId} />
-            <button className="primary-button" style={{ backgroundColor: '#15803d' }}>
-              <FileCheck size={16} /> ยืนยันการผลิต (ส่งไฟล์แล้ว)
-            </button>
-          </form>
         </div>
       ) : null}
 
@@ -463,27 +483,10 @@ export function DesignWorkbench({
         ) : (
           /* DISPLAY ACTIVE PROOF SQUARE BOX */
           <div className="square-active-proof-card">
-            <div className="proof-active-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="badge blue">เวอร์ชัน v{activeProof.version}</span>
-                {proofs.length > 1 ? (
-                  <div className="proof-version-pills">
-                    {proofs.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedProof(p);
-                          setIsUploadingNew(false);
-                        }}
-                        className={`ver-pill ${activeProof?.id === p.id ? 'active' : ''}`}
-                      >
-                        v{p.version}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
+            <div className="proof-active-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
+                รูปภาพแบบร่าง
+              </span>
               <small className="proof-uploader-tag">
                 {activeProof.creator?.full_name || 'กราฟิก'} · {new Date(activeProof.created_at).toLocaleDateString('th-TH')}
               </small>
@@ -492,7 +495,7 @@ export function DesignWorkbench({
             <div className="proof-img-frame square-frame" style={{ cursor: 'pointer' }} onClick={() => setFullImageModalUrl(activeProof.image_url)} title="คลิกเพื่อเปิดดูรูปภาพขนาดเต็ม">
               <img
                 src={activeProof.image_url}
-                alt={`Proof v${activeProof.version}`}
+                alt={activeProof.note || 'รูปภาพแบบร่าง'}
               />
             </div>
 
@@ -503,32 +506,6 @@ export function DesignWorkbench({
             ) : null}
 
             <div className="proof-actions-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {/* GRAPHIC ONLY: ยืนยันการส่งแบบ */}
-              {!isOwnerOrAdmin && (
-                <button
-                  type="button"
-                  onClick={() => handleConfirmProof(activeProof.id, activeProof.image_url)}
-                  disabled={isConfirmingProof}
-                  className="primary-button"
-                  style={{
-                    backgroundColor: '#16a34a',
-                    width: '100%',
-                    justifyContent: 'center',
-                    padding: '11px 16px',
-                    fontWeight: 600,
-                    fontSize: '14.5px',
-                    boxShadow: '0 2px 8px rgba(22, 163, 74, 0.25)',
-                  }}
-                >
-                  <CheckCircle2 size={18} />
-                  {isConfirmingProof
-                    ? 'กำลังยืนยันการส่งแบบ...'
-                    : confirmedProofId === activeProof.id
-                    ? '✓ ยืนยันการส่งแบบแล้ว'
-                    : 'ยืนยันการส่งแบบ'}
-                </button>
-              )}
-
               {/* ALWAYS: คัดลอกรูป */}
               <button
                 type="button"
@@ -656,7 +633,7 @@ export function DesignWorkbench({
               </div>
               <div>
                 <h3 className="custom-modal-title">ยืนยันการลบแบบร่าง</h3>
-                <p className="custom-modal-subtitle">รูปภาพแบบร่างเวอร์ชัน v{activeProof.version}</p>
+                <p className="custom-modal-subtitle">รูปภาพแบบร่างนี้</p>
               </div>
             </div>
 

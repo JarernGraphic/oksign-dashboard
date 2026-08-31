@@ -69,7 +69,8 @@ export function StaffView({ members, currentUserId, currentUserRole }: StaffView
       case 'GRAPHIC':
         return { bg: '#f5f3ff', border: '#ddd6fe', color: '#7c3aed', label: 'กราฟิกดีไซเนอร์' };
       case 'PRODUCTION':
-        return { bg: '#fff7ed', border: '#fed7aa', color: '#ea580c', label: 'ฝ่ายผลิต / ช่าง' };
+      case 'TECHNICIAN':
+        return { bg: '#fff7ed', border: '#fed7aa', color: '#ea580c', label: 'ช่าง' };
       default:
         return { bg: '#f1f5f9', border: '#cbd5e1', color: '#475569', label: 'พนักงาน' };
     }

@@ -335,7 +335,7 @@ export async function uploadDesignProofAction(
 
   await supabase.from('jobs').update({
     stage: 'DESIGN',
-    design_status: 'DESIGNING',
+    design_status: 'WAITING_CUSTOMER',
   }).eq('id', jobId);
 
   revalidatePath(`/jobs/${jobId}`);
@@ -523,6 +523,7 @@ export async function confirmCustomerApproveAction(formData: FormData) {
   const supabase = await createSupabaseServerClient();
 
   await supabase.from('jobs').update({
+    stage: 'PRODUCTION',
     design_status: 'APPROVED',
   }).eq('id', jobId);
 
@@ -582,7 +583,7 @@ export async function confirmProductionReadyAction(formData: FormData) {
     entity_id: jobId,
     action: 'GRAPHIC_CONFIRMED_PRODUCTION',
     user_id: profile.id,
-    metadata: {},
+    metadata: { note: 'ยืนยันการส่งผลิต (ส่งไฟล์พิมพ์เรียบร้อยแล้ว)', confirmed_by: profile.full_name },
   });
 
   revalidatePath(`/jobs/${jobId}`);

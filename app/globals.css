@@ -108,6 +108,17 @@
   will-change: transform;
 }
 
+@keyframes fadeInZoom {
+  from {
+    opacity: 0;
+    transform: scale(0.93);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 * { box-sizing: border-box; }
 html { background: var(--canvas); }
 body, button, input, select, textarea {
@@ -233,21 +244,21 @@ a { color: inherit; text-decoration: none; }
 }
 
 .sub-item-title {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 140px;
+  max-width: 155px;
 }
 
 .sub-item-sub {
-  font-size: 9.5px;
+  font-size: 10px;
   color: #71717a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 140px;
+  max-width: 155px;
 }
 
 [data-theme="dark"] .sub-item-sub {
@@ -669,7 +680,7 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
   .mobile-brand { display: block; }
   .global-search { width: auto; flex: 1; }
   .global-search kbd { display: none; }
-  .primary-button { width: 38px; padding: 0; font-size: 0; }
+  .topbar .primary-button { width: 38px; padding: 0; font-size: 0; }
   .content { padding: 22px 16px 14px; }
   .page-heading { align-items: flex-start; }
   .page-heading .secondary-button { display: none; }
@@ -9165,15 +9176,29 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
 .customer-job-cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; padding-top:4px; }
 .customer-job-card { overflow:hidden; border:1px solid #e8ebf1; border-radius:16px; background:#fff; color:inherit; text-decoration:none; box-shadow:0 5px 18px #2e3a5a08; transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease; }
 .customer-job-card:hover { transform:translateY(-3px); border-color:#bfcdf8; box-shadow:0 12px 28px #2e3a5a16; }
-.customer-job-card-image { position:relative; display:flex; align-items:center; justify-content:center; height:190px; overflow:hidden; background:linear-gradient(135deg,#eef2ff,#f8fafc); color:#9aa5b5; }
-.customer-job-card-image img { width:100%; height:100%; object-fit:cover; }
+.customer-job-card-image { position:relative; display:flex; align-items:center; justify-content:center; height:220px; overflow:hidden; background:linear-gradient(135deg,#f8fafc,#f1f5f9); color:#9aa5b5; border-bottom:1px solid #e2e8f0; }
+.customer-job-card-image img { width:100%; height:100%; object-fit:contain; padding:10px; transition:transform 0.25s ease; }
+.technician-uncropped-box { position:relative; display:flex; align-items:center; justify-content:center; height:220px; background:linear-gradient(135deg,#f8fafc,#f1f5f9) !important; overflow:hidden; cursor:pointer; border-bottom:1px solid #e2e8f0; }
+.technician-uncropped-box img { width:100%; height:100%; object-fit:contain !important; padding:10px; transition:transform 0.25s ease; }
+.technician-uncropped-box:hover img { transform:scale(1.04); }
+.img-hover-overlay { position:absolute; inset:0; background:rgba(15,23,42,0.65); color:#ffffff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; opacity:0; transition:opacity 0.2s ease; font-size:12.5px; font-weight:600; }
+.technician-uncropped-box:hover .img-hover-overlay { opacity:1; }
+.no-img-placeholder { display:flex; flex-direction:column; align-items:center; gap:8px; color:#64748b; font-size:13px; }
+.technician-job-number-link { color:#dc2626; font-weight:800; font-size:16px; text-decoration:none; }
+.technician-job-number-link:hover { text-decoration:underline; }
+.view-detail-link { display:inline-flex; align-items:center; gap:4px; font-size:12px; color:#2563eb; text-decoration:none; font-weight:600; }
+.view-detail-link:hover { text-decoration:underline; }
+.spec-pill { display:inline-block; padding:3px 8px; border-radius:6px; background:#f1f5f9; color:#334155; font-size:11.5px; font-weight:500; }
+.spec-pill.dim { background:#e2e8f0; font-weight:700; color:#0f172a; }
 .customer-job-card-image span:not(.badge) { margin-left:8px; font-size:12px; }
 .customer-job-card-stage { position:absolute; top:12px; left:12px; box-shadow:0 2px 8px #0002; }
 .customer-job-card-body { padding:15px 16px 16px; }
 .customer-job-card-top { display:flex; justify-content:space-between; align-items:center; color:#7b8798; font-size:12px; }
 .customer-job-card-top svg { color:#9aa8bd; }
 .customer-job-card h3 { margin:8px 0 13px; color:#26334a; font-size:16px; line-height:1.35; }
-.customer-job-card-meta { display:flex; color:#7a8798; font-size:12px; }
+.customer-job-card h3 a { color:inherit; text-decoration:none; }
+.customer-job-card h3 a:hover { color:#2563eb; }
+.customer-job-card-meta { display:flex; color:#7a8798; font-size:12px; justify-content:space-between; margin-top:10px; }
 .customer-job-card-meta span { display:flex; align-items:center; gap:6px; }
 .customer-job-card-footer { display:flex; align-items:center; justify-content:space-between; margin-top:16px; padding-top:13px; border-top:1px solid #edf0f5; }
 .customer-job-card-footer strong { color:#29364d; font-size:15px; }
@@ -9190,13 +9215,131 @@ footer i { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
   .technician-job-specs { gap: 5px; }
   .technician-job-specs span { font-size: 11px; max-width: 100%; }
   .customer-job-card-meta { flex-direction: column; gap: 7px; line-height: 1.35; }
-  .customer-job-card-body form { width: 100%; margin-top: 12px; }
-  .customer-job-card-body form .primary-button { width: 100%; height: 42px; padding: 0 14px; font-size: 14px; gap: 7px; }
-  .customer-job-card-body form .primary-button svg { display: inline-block; }
+  .customer-job-card-body .primary-button,
+  .customer-job-card-body form .primary-button { width: 100% !important; height: 42px !important; padding: 0 16px !important; font-size: 14px !important; gap: 7px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; }
+  .customer-job-card-body .primary-button svg,
+  .customer-job-card-body form .primary-button svg { display: inline-block !important; }
+  .custom-modal-footer .primary-button { width: auto !important; height: 40px !important; padding: 0 16px !important; font-size: 13.5px !important; gap: 6px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; }
 }
- .technician-job-number { color: #dc2626; font-weight: 800; }
-.technician-job-title { font-size: 1.12rem; font-weight: 800; color: var(--text); }
-.technician-job-quantity { margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: #fff7ed; color: #c2410c; font-size: 13px; font-weight: 700; }
-.technician-job-quantity strong { font-size: 15px; margin-left: 4px; font-weight: 700; }
+.technician-job-number { color: #dc2626; font-weight: 800; }
+.technician-job-title { font-size: 1.05rem; font-weight: 800; color: var(--text); }
+.technician-job-primary-specs { display: flex; align-items: center; gap: 8px; margin: 8px 0 10px; flex-wrap: wrap; }
+.spec-pill.quantity-pill { background: #fff7ed; color: #c2410c; border: 1px solid #ffedd5; font-size: 12px; padding: 4px 10px; border-radius: 6px; font-weight: 600; }
+.spec-pill.quantity-pill strong { color: #ea580c; font-size: 13px; margin-left: 2px; }
+.spec-pill.dim-pill { background: #f1f5f9; color: #0f172a; border: 1px solid #e2e8f0; font-size: 12px; padding: 4px 10px; border-radius: 6px; font-weight: 600; }
+.spec-pill.dim-pill strong { color: #0284c7; font-size: 13px; margin-left: 2px; }
 .technician-job-specs { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
 .technician-job-specs span { padding: 4px 8px; border-radius: 6px; background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 650; }
+
+/* COMPACT GRID VIEW FOR TECHNICIAN MOBILE VIEW */
+.customer-job-cards.compact-grid-view {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 1050px) {
+  .customer-job-cards.compact-grid-view {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+@media (max-width: 640px) {
+  .customer-job-cards.compact-grid-view {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+  .customer-job-cards.compact-grid-view .customer-job-card {
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+  }
+  .customer-job-cards.compact-grid-view .customer-job-card-image {
+    height: 110px !important;
+  }
+  .customer-job-cards.compact-grid-view .customer-job-card-stage {
+    top: 6px !important;
+    left: 6px !important;
+    font-size: 9.5px !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+  }
+  .customer-job-cards.compact-grid-view .customer-job-card-body {
+    padding: 8px 10px 10px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+  }
+  .customer-job-cards.compact-grid-view .technician-job-number-link {
+    font-size: 13.5px !important;
+    font-weight: 800 !important;
+  }
+  .customer-job-cards.compact-grid-view .view-detail-link {
+    font-size: 10.5px !important;
+  }
+  .customer-job-cards.compact-grid-view .technician-job-title {
+    font-size: 12.5px !important;
+    margin: 3px 0 4px !important;
+    line-height: 1.25 !important;
+    font-weight: 700 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+  .customer-job-cards.compact-grid-view .technician-job-primary-specs {
+    margin: 3px 0 4px !important;
+    gap: 4px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    overflow: hidden !important;
+  }
+  .customer-job-cards.compact-grid-view .spec-pill.quantity-pill,
+  .customer-job-cards.compact-grid-view .spec-pill.dim-pill {
+    font-size: 10px !important;
+    padding: 2px 5px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+  .customer-job-cards.compact-grid-view .spec-pill {
+    font-size: 10px !important;
+    padding: 2px 5px !important;
+    border-radius: 4px !important;
+  }
+  .customer-job-cards.compact-grid-view .technician-job-specs {
+    margin: 3px 0 4px !important;
+    gap: 3px !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    max-height: 22px !important;
+    overflow: hidden !important;
+  }
+  .customer-job-cards.compact-grid-view .customer-job-card-meta {
+    font-size: 10px !important;
+    margin-top: 4px !important;
+    flex-direction: column !important;
+    gap: 1px !important;
+    line-height: 1.3 !important;
+  }
+  .customer-job-cards.compact-grid-view .primary-button {
+    width: 100% !important;
+    height: 36px !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    margin-top: 8px !important;
+    padding: 0 6px !important;
+    border-radius: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    background-color: #dc2626 !important;
+    color: #ffffff !important;
+  }
+  .customer-job-cards.compact-grid-view .primary-button svg {
+    width: 13px !important;
+    height: 13px !important;
+    flex-shrink: 0 !important;
+    display: inline-block !important;
+  }
+}

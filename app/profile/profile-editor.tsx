@@ -87,7 +87,7 @@ export function UserProfileEditor({ profile }: UserProfileEditorProps) {
     if (code === 'OWNER') return 'เจ้าของร้าน (Owner)';
     if (code === 'ADMIN') return 'แอดมิน / ประสานงาน (Admin)';
     if (code === 'GRAPHIC') return 'กราฟิกดีไซเนอร์ (Graphic Designer)';
-    if (code === 'PRODUCTION') return 'ฝ่ายผลิต / ช่าง (Production)';
+    if (code === 'PRODUCTION' || code === 'TECHNICIAN') return 'ช่าง';
     return profile.role?.name_th || 'พนักงาน';
   };
 
